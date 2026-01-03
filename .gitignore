@@ -1,0 +1,8 @@
+# Temporary files
+tmp/
+
+# System files
+.DS_Store
+
+# Dependencies
+node_modules/
