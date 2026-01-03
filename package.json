@@ -1,0 +1,8 @@
+{
+  "name": "esspec",
+  "version": "0.0.1",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "packageManager": "pnpm@10.7.1"
+}
