@@ -18,6 +18,7 @@ export interface LiveBroadcastConfig {
   scheduledStartTime: string; // ISO 8601 format
   privacyStatus: 'public' | 'private' | 'unlisted';
   latencyPreference: 'normal' | 'low' | 'ultraLow';
+  categoryId?: number;
 }
 
 export interface LiveStreamConfig {
@@ -165,6 +166,7 @@ export class YouTubeClient {
             title: config.title,
             description: config.description,
             scheduledStartTime: config.scheduledStartTime,
+            ...(config.categoryId !== undefined && { categoryId: String(config.categoryId) }),
           },
           status: {
             privacyStatus: config.privacyStatus,

@@ -114,6 +114,7 @@ async function main() {
     scheduledStartTime: eventData.eventDateTime,
     privacyStatus: 'public' as const,
     latencyPreference: 'normal' as const,
+    categoryId: 28,
   };
 
   const streamConfig = {
