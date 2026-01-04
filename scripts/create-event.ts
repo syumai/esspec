@@ -5,50 +5,10 @@ import {
   formatToJapaneseDisplay,
   parseISODateTime,
 } from './lib/date-utils.ts';
+import { parseEventNumberArg } from './lib/arg-parser.ts';
 import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import { z } from 'zod';
-
-interface CreateEventArgs {
-  event: number;
-}
-
-function parseArgs(): CreateEventArgs {
-  const args = process.argv.slice(2);
-
-  // Support both positional and --event flag
-  let event: number | undefined;
-
-  if (args.length === 1 && !args[0].startsWith('--')) {
-    // Positional argument: pnpm run create-event 92
-    event = parseInt(args[0], 10);
-  } else {
-    // Flag-based argument: pnpm run create-event -- --event 92
-    for (let i = 0; i < args.length; i++) {
-      if (args[i] === '--event' && args[i + 1]) {
-        event = parseInt(args[i + 1], 10);
-        i++;
-      }
-    }
-  }
-
-  if (!event) {
-    console.error('[ERROR] Missing required argument\n');
-    console.error('Usage: pnpm run create-event <event_number>');
-    console.error('   or: pnpm run create-event -- --event <event_number>');
-    console.error('\nExample:');
-    console.error('  pnpm run create-event 92');
-    console.error('  pnpm run create-event -- --event 92\n');
-    process.exit(1);
-  }
-
-  if (isNaN(event) || event <= 0) {
-    console.error('[ERROR] Event number must be a positive integer\n');
-    process.exit(1);
-  }
-
-  return { event };
-}
 
 async function promptForReadingRange(): Promise<string> {
   const rl = createInterface({ input, output });
@@ -205,7 +165,7 @@ async function promptForEventDateTime(
 }
 
 async function main() {
-  const { event } = parseArgs();
+  const event = parseEventNumberArg();
 
   console.log('[INFO] Creating new event...\n');
 
@@ -258,9 +218,7 @@ async function main() {
     }
     console.log(`  Scrapbox URL: ${createdEvent.scrapboxUrl}\n`);
     console.log('[INFO] Next steps:');
-    console.log(
-      `  - Download captions: pnpm run download-caption -- --event ${event} --url <youtube_url>`
-    );
+    console.log(`  - Download captions: pnpm run download-caption ${event}`);
     console.log(`  - Generate summary: pnpm run generate-summary ${event}\n`);
   } catch (error) {
     console.error(`[ERROR] ${(error as Error).message}\n`);

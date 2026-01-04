@@ -1,4 +1,5 @@
 import { GeminiClient } from './lib/gemini-client.ts';
+import { parseEventNumberArg } from './lib/arg-parser.ts';
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -9,49 +10,8 @@ const GEMINI_PROMPT = `このECMAScript仕様輪読会全体の内容を、出�
 ただし、冒頭に行われる、自己紹介及び雑談の部分は飛ばしてください。
 書式はMarkdownで整え、必要に応じてコードブロックによる説明を示してください。`;
 
-interface GenerateSummaryArgs {
-  event: number;
-}
-
-function parseArgs(): GenerateSummaryArgs {
-  const args = process.argv.slice(2);
-
-  // Support both positional and --event flag
-  let event: number | undefined;
-
-  if (args.length === 1 && !args[0].startsWith('--')) {
-    // Positional argument: pnpm run generate-summary 42
-    event = parseInt(args[0], 10);
-  } else {
-    // Flag-based argument: pnpm run generate-summary -- --event 42
-    for (let i = 0; i < args.length; i++) {
-      if (args[i] === '--event' && args[i + 1]) {
-        event = parseInt(args[i + 1], 10);
-        i++;
-      }
-    }
-  }
-
-  if (!event) {
-    console.error('[ERROR] Missing required argument\n');
-    console.error('Usage: pnpm run generate-summary <event_number>');
-    console.error('   or: pnpm run generate-summary -- --event <event_number>');
-    console.error('\nExample:');
-    console.error('  pnpm run generate-summary 42');
-    console.error('  pnpm run generate-summary -- --event 42\n');
-    process.exit(1);
-  }
-
-  if (isNaN(event) || event <= 0) {
-    console.error('[ERROR] Event number must be a positive integer\n');
-    process.exit(1);
-  }
-
-  return { event };
-}
-
 async function main() {
-  const { event } = parseArgs();
+  const event = parseEventNumberArg();
 
   console.log('[INFO] Starting summary generation...\n');
 
@@ -61,7 +21,7 @@ async function main() {
   if (!existsSync(captionPath)) {
     console.error(`[ERROR] Caption file not found: ${captionPath}`);
     console.error('\nPlease download the caption first:');
-    console.error(`  pnpm run download-caption -- --event ${event} --url <youtube_url>\n`);
+    console.error(`  pnpm run download-caption ${event}\n`);
     process.exit(1);
   }
 

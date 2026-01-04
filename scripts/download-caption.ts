@@ -3,35 +3,15 @@ import { YouTubeClient } from './lib/youtube-client.ts';
 import { extractVideoId } from './lib/video-id-extractor.ts';
 import { SRTParser } from './lib/srt-parser.ts';
 import { EventManager } from './lib/event-manager.ts';
+import { parseEventNumberArg } from './lib/arg-parser.ts';
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 
 const CAPTIONS_DIR = './tmp/captions';
 
-function parseArgs(): number {
-  const args = process.argv.slice(2);
-
-  if (args.length === 0) {
-    console.error('[ERROR] Missing required argument\n');
-    console.error('Usage: pnpm run download-caption <event_number>');
-    console.error('\nExample:');
-    console.error('  pnpm run download-caption 42\n');
-    process.exit(1);
-  }
-
-  const event = parseInt(args[0], 10);
-
-  if (isNaN(event) || event <= 0) {
-    console.error('[ERROR] Event number must be a positive integer\n');
-    process.exit(1);
-  }
-
-  return event;
-}
-
 async function main() {
-  const event = parseArgs();
+  const event = parseEventNumberArg();
 
   console.log('[INFO] Starting caption download...\n');
 

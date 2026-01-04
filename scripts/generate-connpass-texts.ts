@@ -6,55 +6,15 @@ import {
   generateEventInfo,
 } from './lib/connpass-text-generator.ts';
 import { parseISODateTime } from './lib/date-utils.ts';
+import { parseEventNumberArg } from './lib/arg-parser.ts';
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 
 const CONNPASS_DIR = './tmp/connpass';
 
-interface GenerateConnpassTextsArgs {
-  event: number;
-}
-
-function parseArgs(): GenerateConnpassTextsArgs {
-  const args = process.argv.slice(2);
-
-  // Support both positional and --event flag
-  let event: number | undefined;
-
-  if (args.length === 1 && !args[0].startsWith('--')) {
-    // Positional argument: pnpm run generate-connpass-texts 93
-    event = parseInt(args[0], 10);
-  } else {
-    // Flag-based argument: pnpm run generate-connpass-texts -- --event 93
-    for (let i = 0; i < args.length; i++) {
-      if (args[i] === '--event' && args[i + 1]) {
-        event = parseInt(args[i + 1], 10);
-        i++;
-      }
-    }
-  }
-
-  if (!event) {
-    console.error('[ERROR] Missing required argument\n');
-    console.error('Usage: pnpm run generate-connpass-texts <event_number>');
-    console.error('   or: pnpm run generate-connpass-texts -- --event <event_number>');
-    console.error('\nExample:');
-    console.error('  pnpm run generate-connpass-texts 93');
-    console.error('  pnpm run generate-connpass-texts -- --event 93\n');
-    process.exit(1);
-  }
-
-  if (isNaN(event) || event <= 0) {
-    console.error('[ERROR] Event number must be a positive integer\n');
-    process.exit(1);
-  }
-
-  return { event };
-}
-
 async function main() {
-  const { event } = parseArgs();
+  const event = parseEventNumberArg();
 
   console.log(`[INFO] Generating connpass texts for event #${event}...\n`);
 

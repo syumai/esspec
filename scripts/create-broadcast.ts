@@ -2,49 +2,9 @@ import { AuthManager } from './lib/auth-manager.ts';
 import { YouTubeClient } from './lib/youtube-client.ts';
 import { EventManager, type Event } from './lib/event-manager.ts';
 import { extractVideoId } from './lib/video-id-extractor.ts';
+import { parseEventNumberArg } from './lib/arg-parser.ts';
 import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
-
-interface CreateBroadcastArgs {
-  event: number;
-}
-
-function parseArgs(): CreateBroadcastArgs {
-  const args = process.argv.slice(2);
-
-  // Support both positional and --event flag
-  let event: number | undefined;
-
-  if (args.length === 1 && !args[0].startsWith('--')) {
-    // Positional argument: pnpm run create-broadcast 93
-    event = parseInt(args[0], 10);
-  } else {
-    // Flag-based argument: pnpm run create-broadcast -- --event 93
-    for (let i = 0; i < args.length; i++) {
-      if (args[i] === '--event' && args[i + 1]) {
-        event = parseInt(args[i + 1], 10);
-        i++;
-      }
-    }
-  }
-
-  if (!event) {
-    console.error('[ERROR] Missing required argument\n');
-    console.error('Usage: pnpm run create-broadcast <event_number>');
-    console.error('   or: pnpm run create-broadcast -- --event <event_number>');
-    console.error('\nExample:');
-    console.error('  pnpm run create-broadcast 93');
-    console.error('  pnpm run create-broadcast -- --event 93\n');
-    process.exit(1);
-  }
-
-  if (isNaN(event) || event <= 0) {
-    console.error('[ERROR] Event number must be a positive integer\n');
-    process.exit(1);
-  }
-
-  return { event };
-}
 
 function buildDescription(eventData: Event): string {
   const parts = [
@@ -89,7 +49,7 @@ async function confirmBroadcastAction(eventNumber: number, existingUrl: string):
 }
 
 async function main() {
-  const { event } = parseArgs();
+  const event = parseEventNumberArg();
 
   console.log('[INFO] Creating YouTube live broadcast...\n');
 
@@ -168,7 +128,7 @@ async function main() {
       console.log(`\n[SUCCESS] Event #${event} broadcast updated`);
       console.log('[INFO] You can now start streaming at the scheduled time');
       console.log(`[INFO] To download captions later, run:`);
-      console.log(`  pnpm run download-caption -- --event ${event}\n`);
+      console.log(`  pnpm run download-caption ${event}\n`);
     } catch (error) {
       console.error(`\n[ERROR] ${(error as Error).message}\n`);
       process.exit(1);
@@ -215,7 +175,7 @@ async function main() {
       console.log(`\n[SUCCESS] Event #${event} updated with YouTube URL`);
       console.log('[INFO] You can now start streaming at the scheduled time');
       console.log(`[INFO] To download captions later, run:`);
-      console.log(`  pnpm run download-caption -- --event ${event}\n`);
+      console.log(`  pnpm run download-caption ${event}\n`);
     } catch (error) {
       console.error(`\n[ERROR] Failed to update event file: ${(error as Error).message}`);
       console.error('[WARN] Broadcast was created successfully, but the URL was not saved to the event file.');
