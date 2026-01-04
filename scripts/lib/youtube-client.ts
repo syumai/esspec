@@ -242,6 +242,79 @@ export class YouTubeClient {
   }
 
   /**
+   * Update an existing live broadcast
+   */
+  async updateLiveBroadcast(broadcastId: string, config: Partial<LiveBroadcastConfig>): Promise<void> {
+    try {
+      console.log(`[INFO] Updating live broadcast: ${broadcastId}`);
+
+      // First, get the current broadcast to preserve existing settings
+      const currentResponse = await this.youtube.liveBroadcasts.list({
+        part: ['snippet', 'status', 'contentDetails'],
+        id: [broadcastId],
+      });
+
+      if (!currentResponse.data.items || currentResponse.data.items.length === 0) {
+        throw new Error(`Broadcast not found: ${broadcastId}`);
+      }
+
+      const currentBroadcast = currentResponse.data.items[0];
+      const currentSnippet = currentBroadcast.snippet!;
+      const currentStatus = currentBroadcast.status!;
+      const currentContentDetails = currentBroadcast.contentDetails!;
+
+      // Build updated snippet
+      const updatedSnippet: any = {
+        title: config.title ?? currentSnippet.title,
+        description: config.description ?? currentSnippet.description,
+        scheduledStartTime: config.scheduledStartTime ?? currentSnippet.scheduledStartTime,
+      };
+
+      // Add categoryId if provided
+      if (config.categoryId !== undefined) {
+        updatedSnippet.categoryId = String(config.categoryId);
+      } else if ((currentSnippet as any).categoryId) {
+        updatedSnippet.categoryId = (currentSnippet as any).categoryId;
+      }
+
+      // Update the broadcast
+      await this.youtube.liveBroadcasts.update({
+        part: ['snippet', 'status', 'contentDetails'],
+        requestBody: {
+          id: broadcastId,
+          snippet: updatedSnippet,
+          status: {
+            privacyStatus: config.privacyStatus ?? currentStatus.privacyStatus,
+            selfDeclaredMadeForKids: currentStatus.selfDeclaredMadeForKids ?? false,
+          },
+          contentDetails: {
+            latencyPreference: config.latencyPreference ?? currentContentDetails.latencyPreference,
+            enableAutoStart: currentContentDetails.enableAutoStart ?? false,
+            enableAutoStop: currentContentDetails.enableAutoStop ?? false,
+            enableDvr: currentContentDetails.enableDvr ?? true,
+            recordFromStart: currentContentDetails.recordFromStart ?? true,
+            enableClosedCaptions: currentContentDetails.enableClosedCaptions ?? true,
+          },
+        },
+      });
+
+      console.log(`[SUCCESS] Broadcast updated: ${broadcastId}`);
+    } catch (error: any) {
+      if (error.code === 403) {
+        throw new Error('YouTube Data API quota exceeded. Please try again tomorrow or request a quota increase at https://console.cloud.google.com/apis/api/youtube.googleapis.com/quotas');
+      } else if (error.code === 404) {
+        throw new Error(`Broadcast not found: ${broadcastId}`);
+      } else if (error.code === 400) {
+        throw new Error(`Invalid broadcast parameters: ${error.message}`);
+      } else if (error.code === 401) {
+        throw new Error('Authentication failed. Please run: pnpm run auth');
+      } else {
+        throw new Error(`Failed to update broadcast: ${error.message}`);
+      }
+    }
+  }
+
+  /**
    * Bind a live stream to a broadcast
    */
   async bindBroadcastToStream(broadcastId: string, streamId: string): Promise<void> {
