@@ -130,6 +130,14 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
 - Validates that YouTube URL exists before generating participant-facing templates
 - Configuration: timetable timing (start, break at +1h, end at +2h)
 
+**scripts/lib/arg-parser.ts**: Shared argument parser
+- Provides `parseEventNumberArg()` function for parsing event numbers from command-line arguments
+- Used by all event-related scripts (create-event, download-caption, generate-summary, create-broadcast, generate-connpass-texts)
+- Accepts only positional arguments (e.g., `pnpm run create-event 42`)
+- Validates that event number is a positive integer
+- Reduces code duplication across scripts
+- Configuration: none (pure parser utility)
+
 ### Workflow
 
 **Quick start**: For a complete event setup workflow, you can use `pnpm run setup-event <event_number>` which runs `create-event`, `create-broadcast`, and `generate-connpass-texts` in sequence. This is the recommended approach for new events.
@@ -219,6 +227,6 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
 - Event files and caption SRT files are never overwritten; caption TXT files and summary files are overwritten
 - Caption download automatically creates both SRT and TXT versions
 - Connpass template files are overwritten on each generation
-- Positional argument support: most scripts accept `<event_number>` as a simple positional argument instead of `-- --event <event_number>`
+- All event-related scripts accept `<event_number>` as a positional argument, parsed via shared arg-parser library
 - Event data is validated using Zod schemas at runtime
 - Error handling includes specific messages for quota limits, permissions, and missing files
