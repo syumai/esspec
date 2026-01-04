@@ -270,11 +270,15 @@ export class YouTubeClient {
         scheduledStartTime: config.scheduledStartTime ?? currentSnippet.scheduledStartTime,
       };
 
-      // Add categoryId if provided
+      // Add categoryId - always set if provided, otherwise preserve existing
       if (config.categoryId !== undefined) {
         updatedSnippet.categoryId = String(config.categoryId);
+        console.log(`[INFO] Setting categoryId to: ${config.categoryId}`);
       } else if ((currentSnippet as any).categoryId) {
         updatedSnippet.categoryId = (currentSnippet as any).categoryId;
+        console.log(`[INFO] Preserving existing categoryId: ${(currentSnippet as any).categoryId}`);
+      } else {
+        console.log('[WARN] No categoryId specified and none found in existing broadcast');
       }
 
       // Build updated contentDetails
@@ -297,7 +301,7 @@ export class YouTubeClient {
         };
       }
 
-      // Update the broadcast
+      // Update the broadcast (liveBroadcasts.update doesn't support categoryId, so we use videos.update for that)
       await this.youtube.liveBroadcasts.update({
         part: ['snippet', 'status', 'contentDetails'],
         requestBody: {
@@ -310,6 +314,25 @@ export class YouTubeClient {
           contentDetails: updatedContentDetails,
         },
       });
+
+      // Update categoryId using videos.update (liveBroadcasts.update doesn't support categoryId)
+      if (config.categoryId !== undefined) {
+        try {
+          await this.youtube.videos.update({
+            part: ['snippet'],
+            requestBody: {
+              id: broadcastId,
+              snippet: {
+                categoryId: String(config.categoryId),
+              },
+            },
+          });
+          console.log(`[INFO] Category updated to: ${config.categoryId}`);
+        } catch (error: any) {
+          console.log(`[WARN] Failed to update category: ${error.message}`);
+          // Don't throw - category update failure shouldn't fail the whole operation
+        }
+      }
 
       console.log(`[SUCCESS] Broadcast updated: ${broadcastId}`);
     } catch (error: any) {
