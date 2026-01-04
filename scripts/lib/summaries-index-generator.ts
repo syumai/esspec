@@ -31,8 +31,11 @@ function generateEventRow(event: Event): string {
   const eventDate = parseISODateTime(event.eventDateTime);
   const displayDate = formatToJapaneseDisplay(eventDate);
   const summaryColumn = generateSummaryColumn(event.eventNumber);
+  const eventNumberColumn = event.connpassUrl
+    ? `[#${event.eventNumber}](${event.connpassUrl})`
+    : `#${event.eventNumber}`;
 
-  return `| #${event.eventNumber} | ${displayDate} | ${summaryColumn} |`;
+  return `| ${eventNumberColumn} | ${displayDate} | ${summaryColumn} |`;
 }
 
 /**
@@ -43,7 +46,7 @@ export function generateSummariesIndex(events: Event[]): string {
   const lines = [
     '# ECMAScript仕様輪読会 書き起こしサマリー一覧',
     '',
-    '| イベント番号 | 開催日時 | サマリー |',
+    '| イベント | 開催日時 | サマリー |',
     '|:---:|:---:|:---|',
   ];
 
