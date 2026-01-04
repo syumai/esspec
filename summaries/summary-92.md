@@ -79,6 +79,7 @@ GetNamedTimeZoneEpochNanoseconds(
 *   **特徴:** JSのオブジェクトとは異なり、固定のフィールドセットを持つプレーンなデータ構造。
 
 ### テーブル62: TimeZoneIdentifierRecord のフィールド
+
 | フィールド名 | 説明 |
 | :--- | :--- |
 | `[[Identifier]]` | 実装がサポートする利用可能な名前付きタイムゾーン識別子（String）。 |
