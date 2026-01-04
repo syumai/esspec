@@ -15,19 +15,29 @@ interface GenerateSummaryArgs {
 
 function parseArgs(): GenerateSummaryArgs {
   const args = process.argv.slice(2);
+
+  // Support both positional and --event flag
   let event: number | undefined;
 
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--event' && args[i + 1]) {
-      event = parseInt(args[i + 1], 10);
-      i++;
+  if (args.length === 1 && !args[0].startsWith('--')) {
+    // Positional argument: pnpm run generate-summary 42
+    event = parseInt(args[0], 10);
+  } else {
+    // Flag-based argument: pnpm run generate-summary -- --event 42
+    for (let i = 0; i < args.length; i++) {
+      if (args[i] === '--event' && args[i + 1]) {
+        event = parseInt(args[i + 1], 10);
+        i++;
+      }
     }
   }
 
   if (!event) {
     console.error('[ERROR] Missing required argument\n');
-    console.error('Usage: pnpm run generate-summary -- --event <num>');
+    console.error('Usage: pnpm run generate-summary <event_number>');
+    console.error('   or: pnpm run generate-summary -- --event <event_number>');
     console.error('\nExample:');
+    console.error('  pnpm run generate-summary 42');
     console.error('  pnpm run generate-summary -- --event 42\n');
     process.exit(1);
   }

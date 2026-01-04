@@ -34,9 +34,9 @@ pnpm run download-caption -- --event 42 --url https://youtube.com/live/Q3ZKvcPSn
 
 **Generate summary from captions:**
 ```bash
-pnpm run generate-summary -- --event <num>
+pnpm run generate-summary <event_number>
 # Example:
-pnpm run generate-summary -- --event 42
+pnpm run generate-summary 42
 ```
 
 ## Architecture

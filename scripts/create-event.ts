@@ -261,7 +261,7 @@ async function main() {
     console.log(
       `  - Download captions: pnpm run download-caption -- --event ${event} --url <youtube_url>`
     );
-    console.log(`  - Generate summary: pnpm run generate-summary -- --event ${event}\n`);
+    console.log(`  - Generate summary: pnpm run generate-summary ${event}\n`);
   } catch (error) {
     console.error(`[ERROR] ${(error as Error).message}\n`);
     process.exit(1);
