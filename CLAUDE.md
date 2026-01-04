@@ -40,27 +40,23 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
 
 ### Core Components
 
-**scripts/lib/config.ts**: Central configuration
-- Credentials stored in `~/.local/esspec/`
-- YouTube API scopes and caption preferences (Japanese, SRT format)
-- Gemini prompt configuration (Japanese prompt for detailed summaries)
-- Retry and timeout settings
-
 **scripts/lib/auth-manager.ts**: OAuth 2.0 authentication
 - Manages Google OAuth 2.0 credentials for YouTube Data API
 - Stores credentials in `~/.local/esspec/credentials.json`
 - Stores access/refresh tokens in `~/.local/esspec/tokens.json`
 - Automatically refreshes expired tokens with 5-minute buffer
+- Configuration: credentials directory (`~/.local/esspec/`)
 
 **scripts/lib/youtube-client.ts**: YouTube Data API wrapper
 - Fetches available caption tracks for videos
 - Downloads captions in SRT format
 - Selects Japanese captions (prefers manual over auto-generated)
+- Configuration: caption format (SRT), preferred language (Japanese)
 
 **scripts/lib/gemini-client.ts**: Gemini AI integration
 - Uses Gemini CLI (must be installed globally: `npm install -g @google/gemini-cli`)
 - Generates summaries from caption files
-- 5-minute timeout for processing, 10MB buffer for large outputs
+- Configuration: 5-minute timeout, 10MB buffer for large outputs
 
 **scripts/lib/video-id-extractor.ts**: URL parser
 - Extracts video IDs from various YouTube URL formats
@@ -80,12 +76,14 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
    - Selects Japanese track (manual preferred over auto-generated)
    - Downloads to `./tmp/captions/caption-{event}.srt`
    - Skips if file already exists (no overwrite)
+   - Configuration: captions directory (`./tmp/captions`)
 
 3. **Generate summary**: Run `generate-summary.ts` with event number
-   - Reads caption from `./tmp/captions/caption-{event}.srt`
-   - Calls Gemini CLI with Japanese prompt
+   - Reads caption from `./tmp/captions/caption-{event}.txt`
+   - Calls Gemini CLI with Japanese prompt (detailed summaries, skip introductions)
    - Saves markdown summary to `./summaries/summary-{event}.md`
    - Overwrites existing summaries
+   - Configuration: captions directory (`./tmp/captions`), summaries directory (`./summaries`), Gemini prompt
 
 ### TypeScript Configuration
 
@@ -105,6 +103,7 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
 ## Important Notes
 
 - All scripts use `.ts` extensions in imports due to Node.js module resolution with `rewriteRelativeImportExtensions`
+- Configuration values (paths, timeouts, prompts) are defined directly in each script/module as constants
 - Credentials are stored in `~/.local/esspec/` for security (tokens.json has 0600 permissions)
 - Caption files are never overwritten; summary files are overwritten
 - Error handling includes specific messages for quota limits, permissions, and missing files

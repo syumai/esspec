@@ -1,10 +1,11 @@
 import { AuthManager } from './lib/auth-manager.ts';
-import { config } from './lib/config.ts';
 import { createServer } from 'node:http';
 import { parse } from 'node:url';
 import { existsSync } from 'node:fs';
 import { mkdir } from 'node:fs/promises';
 import { exec } from 'node:child_process';
+
+const YOUTUBE_SCOPES = ['https://www.googleapis.com/auth/youtube.force-ssl'];
 
 async function main() {
   console.log('[INFO] Starting OAuth authentication setup...\n');
@@ -42,7 +43,7 @@ async function main() {
   // 4. Generate authorization URL
   const authUrl = client.generateAuthUrl({
     access_type: 'offline',
-    scope: config.youtubeScopes,
+    scope: YOUTUBE_SCOPES,
   });
 
   console.log('[INFO] Opening browser for authentication...\n');

@@ -1,8 +1,8 @@
 import { OAuth2Client } from 'google-auth-library';
 import { readFile, writeFile, mkdir, chmod } from 'node:fs/promises';
 import { join } from 'node:path';
+import { homedir } from 'node:os';
 import { existsSync } from 'node:fs';
-import { config } from './config.ts';
 
 export interface TokenData {
   access_token: string;
@@ -13,12 +13,14 @@ export interface TokenData {
 }
 
 export class AuthManager {
+  private credentialsDir: string;
   private credentialsPath: string;
   private tokensPath: string;
 
   constructor() {
-    this.credentialsPath = join(config.credentialsDir, 'credentials.json');
-    this.tokensPath = join(config.credentialsDir, 'tokens.json');
+    this.credentialsDir = join(homedir(), '.local', 'esspec');
+    this.credentialsPath = join(this.credentialsDir, 'credentials.json');
+    this.tokensPath = join(this.credentialsDir, 'tokens.json');
   }
 
   /**
@@ -58,8 +60,8 @@ export class AuthManager {
    */
   async saveTokens(tokens: TokenData): Promise<void> {
     // Ensure directory exists
-    if (!existsSync(config.credentialsDir)) {
-      await mkdir(config.credentialsDir, { recursive: true });
+    if (!existsSync(this.credentialsDir)) {
+      await mkdir(this.credentialsDir, { recursive: true });
     }
 
     // Write tokens
@@ -105,7 +107,7 @@ export class AuthManager {
    * Get the path to the credentials directory
    */
   getCredentialsDir(): string {
-    return config.credentialsDir;
+    return this.credentialsDir;
   }
 
   /**

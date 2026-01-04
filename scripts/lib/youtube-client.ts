@@ -1,7 +1,9 @@
 import { google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
 import { createWriteStream } from 'node:fs';
-import { config } from './config.ts';
+
+const CAPTION_FORMAT = 'srt' as const;
+const PREFERRED_CAPTION_LANGUAGE = 'ja';
 
 export interface CaptionTrack {
   id: string;
@@ -71,7 +73,7 @@ export class YouTubeClient {
       const response = await this.youtube.captions.download(
         {
           id: captionId,
-          tfmt: config.captionFormat as 'srt',
+          tfmt: CAPTION_FORMAT,
         },
         {
           responseType: 'stream',
@@ -108,7 +110,7 @@ export class YouTubeClient {
    */
   selectJapaneseCaptionTrack(tracks: CaptionTrack[]): CaptionTrack | null {
     // Filter Japanese tracks
-    const japaneseTracks = tracks.filter((track) => track.language === config.preferredCaptionLanguage);
+    const japaneseTracks = tracks.filter((track) => track.language === PREFERRED_CAPTION_LANGUAGE);
 
     if (japaneseTracks.length === 0) {
       return null;
