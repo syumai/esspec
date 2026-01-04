@@ -9,76 +9,52 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 
 const CAPTIONS_DIR = './tmp/captions';
 
-interface DownloadCaptionArgs {
-  event: number;
-  url: string | undefined;
-}
-
-function parseArgs(): DownloadCaptionArgs {
+function parseArgs(): number {
   const args = process.argv.slice(2);
-  let event: number | undefined;
-  let url: string | undefined;
 
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--event' && args[i + 1]) {
-      event = parseInt(args[i + 1], 10);
-      i++;
-    } else if (args[i] === '--url' && args[i + 1]) {
-      url = args[i + 1];
-      i++;
-    }
-  }
-
-  if (!event) {
+  if (args.length === 0) {
     console.error('[ERROR] Missing required argument\n');
-    console.error('Usage: pnpm run download-caption -- --event <num> [--url <youtube_url>]');
-    console.error('\nExamples:');
-    console.error('  pnpm run download-caption -- --event 42');
-    console.error('  pnpm run download-caption -- --event 42 --url https://youtube.com/live/Q3ZKvcPSnNE\n');
+    console.error('Usage: pnpm run download-caption <event_number>');
+    console.error('\nExample:');
+    console.error('  pnpm run download-caption 42\n');
     process.exit(1);
   }
+
+  const event = parseInt(args[0], 10);
 
   if (isNaN(event) || event <= 0) {
     console.error('[ERROR] Event number must be a positive integer\n');
     process.exit(1);
   }
 
-  return { event, url };
+  return event;
 }
 
 async function main() {
-  const { event, url } = parseArgs();
+  const event = parseArgs();
 
   console.log('[INFO] Starting caption download...\n');
 
-  // 1. Determine video URL (from argument or event data)
+  // 1. Load YouTube URL from event data
+  console.log(`[INFO] Loading event #${event} data...`);
+  const eventManager = new EventManager();
   let videoUrl: string;
 
-  if (url) {
-    // URL provided as argument - use it directly
-    videoUrl = url;
-  } else {
-    // Load URL from event data
-    console.log(`[INFO] Loading event #${event} data...`);
-    const eventManager = new EventManager();
+  try {
+    const eventData = await eventManager.loadEvent(event);
 
-    try {
-      const eventData = await eventManager.loadEvent(event);
-
-      if (!eventData.youtubeUrl) {
-        console.error(`[ERROR] Event #${event} does not have a YouTube URL`);
-        console.error('\nPlease either:');
-        console.error(`  1. Create a broadcast: pnpm run create-broadcast ${event}`);
-        console.error(`  2. Provide URL manually: pnpm run download-caption -- --event ${event} --url <youtube_url>\n`);
-        process.exit(1);
-      }
-
-      videoUrl = eventData.youtubeUrl;
-      console.log(`[INFO] Using YouTube URL from event: ${videoUrl}`);
-    } catch (error) {
-      console.error(`[ERROR] ${(error as Error).message}\n`);
+    if (!eventData.youtubeUrl) {
+      console.error(`[ERROR] Event #${event} does not have a YouTube URL`);
+      console.error('\nPlease create a broadcast first:');
+      console.error(`  pnpm run create-broadcast ${event}\n`);
       process.exit(1);
     }
+
+    videoUrl = eventData.youtubeUrl;
+    console.log(`[INFO] Using YouTube URL from event: ${videoUrl}`);
+  } catch (error) {
+    console.error(`[ERROR] ${(error as Error).message}\n`);
+    process.exit(1);
   }
 
   // 2. Extract video ID from URL
