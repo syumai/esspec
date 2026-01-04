@@ -90,7 +90,7 @@ async function main() {
         console.log(`[INFO] Tokens saved to: ${authManager.getTokensPath()}`);
         console.log('\nYou can now use:');
         console.log('  pnpm run download-caption -- --event <num> --url <youtube_url>');
-        console.log('  pnpm run generate-summary -- --event <num>\n');
+        console.log('  pnpm run generate-summary <event_number>\n');
 
         server.close();
         process.exit(0);

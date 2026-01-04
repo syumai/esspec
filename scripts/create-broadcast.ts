@@ -11,19 +11,29 @@ interface CreateBroadcastArgs {
 
 function parseArgs(): CreateBroadcastArgs {
   const args = process.argv.slice(2);
+
+  // Support both positional and --event flag
   let event: number | undefined;
 
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === '--event' && args[i + 1]) {
-      event = parseInt(args[i + 1], 10);
-      i++;
+  if (args.length === 1 && !args[0].startsWith('--')) {
+    // Positional argument: pnpm run create-broadcast 93
+    event = parseInt(args[0], 10);
+  } else {
+    // Flag-based argument: pnpm run create-broadcast -- --event 93
+    for (let i = 0; i < args.length; i++) {
+      if (args[i] === '--event' && args[i + 1]) {
+        event = parseInt(args[i + 1], 10);
+        i++;
+      }
     }
   }
 
   if (!event) {
     console.error('[ERROR] Missing required argument\n');
-    console.error('Usage: pnpm run create-broadcast -- --event <num>');
+    console.error('Usage: pnpm run create-broadcast <event_number>');
+    console.error('   or: pnpm run create-broadcast -- --event <event_number>');
     console.error('\nExample:');
+    console.error('  pnpm run create-broadcast 93');
     console.error('  pnpm run create-broadcast -- --event 93\n');
     process.exit(1);
   }

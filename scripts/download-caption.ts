@@ -68,7 +68,7 @@ async function main() {
       if (!eventData.youtubeUrl) {
         console.error(`[ERROR] Event #${event} does not have a YouTube URL`);
         console.error('\nPlease either:');
-        console.error(`  1. Create a broadcast: pnpm run create-broadcast -- --event ${event}`);
+        console.error(`  1. Create a broadcast: pnpm run create-broadcast ${event}`);
         console.error(`  2. Provide URL manually: pnpm run download-caption -- --event ${event} --url <youtube_url>\n`);
         process.exit(1);
       }
@@ -158,7 +158,7 @@ async function main() {
     }
 
     console.log(`[INFO] You can now generate a summary with:`);
-    console.log(`  pnpm run generate-summary -- --event ${event}\n`);
+    console.log(`  pnpm run generate-summary ${event}\n`);
   } catch (error) {
     console.error(`[ERROR] ${(error as Error).message}\n`);
     process.exit(1);
