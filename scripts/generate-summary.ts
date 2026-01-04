@@ -1,8 +1,13 @@
 import { GeminiClient } from './lib/gemini-client.ts';
-import { config } from './lib/config.ts';
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
+
+const CAPTIONS_DIR = './tmp/captions';
+const SUMMARIES_DIR = './summaries';
+const GEMINI_PROMPT = `このECMAScript仕様輪読会全体の内容を、出来る限り省略無しで、詳しく説明してください。
+ただし、冒頭に行われる、自己紹介及び雑談の部分は飛ばしてください。
+書式はMarkdownで整え、必要に応じてコードブロックによる説明を示してください。`;
 
 interface GenerateSummaryArgs {
   event: number;
@@ -41,7 +46,7 @@ async function main() {
   console.log('[INFO] Starting summary generation...\n');
 
   // 1. Verify caption file exists
-  const captionPath = join(config.captionsDir, `caption-${event}.txt`);
+  const captionPath = join(CAPTIONS_DIR, `caption-${event}.txt`);
 
   if (!existsSync(captionPath)) {
     console.error(`[ERROR] Caption file not found: ${captionPath}`);
@@ -58,19 +63,19 @@ async function main() {
   // 3. Generate summary
   let summary;
   try {
-    summary = await geminiClient.generateSummary(captionPath, config.geminiPrompt);
+    summary = await geminiClient.generateSummary(captionPath, GEMINI_PROMPT);
   } catch (error) {
     console.error(`[ERROR] ${(error as Error).message}\n`);
     process.exit(1);
   }
 
   // 4. Create summaries directory if it doesn't exist
-  if (!existsSync(config.summariesDir)) {
-    await mkdir(config.summariesDir, { recursive: true });
+  if (!existsSync(SUMMARIES_DIR)) {
+    await mkdir(SUMMARIES_DIR, { recursive: true });
   }
 
   // 5. Write summary to file
-  const outputPath = join(config.summariesDir, `summary-${event}.md`);
+  const outputPath = join(SUMMARIES_DIR, `summary-${event}.md`);
 
   if (existsSync(outputPath)) {
     console.log(`[WARN] File already exists: ${outputPath}`);

@@ -2,10 +2,11 @@ import { AuthManager } from './lib/auth-manager.ts';
 import { YouTubeClient } from './lib/youtube-client.ts';
 import { extractVideoId } from './lib/video-id-extractor.ts';
 import { SRTParser } from './lib/srt-parser.ts';
-import { config } from './lib/config.ts';
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
+
+const CAPTIONS_DIR = './tmp/captions';
 
 interface DownloadCaptionArgs {
   event: number;
@@ -95,12 +96,12 @@ async function main() {
   }
 
   // 6. Create captions directory if it doesn't exist
-  if (!existsSync(config.captionsDir)) {
-    await mkdir(config.captionsDir, { recursive: true });
+  if (!existsSync(CAPTIONS_DIR)) {
+    await mkdir(CAPTIONS_DIR, { recursive: true });
   }
 
   // 7. Download caption
-  const outputPath = join(config.captionsDir, `caption-${event}.srt`);
+  const outputPath = join(CAPTIONS_DIR, `caption-${event}.srt`);
 
   if (existsSync(outputPath)) {
     console.log(`[WARN] File already exists: ${outputPath}`);

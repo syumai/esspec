@@ -1,9 +1,11 @@
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
-import { config } from './config.ts';
 import { readFile } from 'node:fs/promises';
 
 const execAsync = promisify(exec);
+
+const GEMINI_TIMEOUT_MS = 300000; // 5 minutes
+const MAX_BUFFER_SIZE = 10 * 1024 * 1024; // 10MB
 
 export class GeminiClient {
   /**
@@ -49,8 +51,8 @@ export class GeminiClient {
       const { stdout, stderr } = await execAsync(
         `gemini "${fullPrompt.replace(/"/g, '\\"')}"`,
         {
-          maxBuffer: 10 * 1024 * 1024, // 10MB buffer for large outputs
-          timeout: config.geminiTimeoutMs,
+          maxBuffer: MAX_BUFFER_SIZE,
+          timeout: GEMINI_TIMEOUT_MS,
         }
       );
 
@@ -66,7 +68,7 @@ export class GeminiClient {
     } catch (error: any) {
       if (error.code === 'ETIMEDOUT') {
         throw new Error(
-          `Gemini CLI timed out after ${config.geminiTimeoutMs / 1000} seconds.\n` +
+          `Gemini CLI timed out after ${GEMINI_TIMEOUT_MS / 1000} seconds.\n` +
           'The caption file may be too large or the API may be slow.'
         );
       } else if (error.code) {
