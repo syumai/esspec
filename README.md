@@ -179,6 +179,12 @@ pnpm run generate-summary 42
 
 生成された要約ファイルは `summaries/summary-<回数>.md` に保存されます。
 
+### 生成されたサマリー一覧
+
+過去の輪読会のサマリーは以下のページで一覧できます：
+
+https://syumai.github.io/esspec/summaries/
+
 ## 開発
 
 ```bash
