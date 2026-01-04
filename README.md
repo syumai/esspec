@@ -4,7 +4,9 @@
 
 このツールは、輪読会のイベント情報をYAML形式で管理し、アーカイブから字幕をダウンロードし、Gemini CLIを使用して詳細な要約（Markdown形式）を生成します。
 
-過去の輪読会のサマリーは以下のページで一覧できます：https://syumai.github.io/esspec/summaries/
+## サマリー一覧
+
+https://syumai.github.io/esspec/summaries/
 
 ## 前提条件
 
