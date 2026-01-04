@@ -21,7 +21,7 @@ function generateSummaryColumn(eventNumber: number): string {
   if (summaryExists(eventNumber)) {
     return `[サマリー](./summary-${eventNumber}.md)`;
   }
-  return 'サマリー作成中';
+  return 'サマリー未作成';
 }
 
 /**
