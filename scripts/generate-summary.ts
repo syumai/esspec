@@ -1,5 +1,6 @@
 import { GeminiClient } from './lib/gemini-client.ts';
 import { parseEventNumberArg } from './lib/arg-parser.ts';
+import { updateSummariesIndex } from './lib/summaries-index-updater.ts';
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -59,6 +60,15 @@ async function main() {
   } catch (error) {
     console.error(`[ERROR] Failed to write summary file: ${(error as Error).message}\n`);
     process.exit(1);
+  }
+
+  // 6. Update summaries index
+  console.log('[INFO] Updating summaries index...\n');
+  try {
+    await updateSummariesIndex();
+  } catch (error) {
+    console.warn('[WARN] Failed to update summaries index.\n');
+    console.warn(`[WARN] ${(error as Error).message}\n`);
   }
 }
 

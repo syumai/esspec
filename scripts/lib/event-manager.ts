@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { readFile, writeFile, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import yaml from 'js-yaml';
@@ -157,5 +157,42 @@ export class EventManager {
     const validatedEvent = EventSchema.parse(updatedEvent);
     await this.saveEvent(validatedEvent);
     return validatedEvent;
+  }
+
+  /**
+   * Extract event number from filename (e.g. "event-91.yaml" -> 91)
+   * Returns null if filename doesn't match the pattern
+   */
+  private extractEventNumber(filename: string): number | null {
+    const match = filename.match(/^event-(\d+)\.yaml$/);
+    return match ? parseInt(match[1], 10) : null;
+  }
+
+  /**
+   * Load all events from the events directory
+   * Returns events sorted by event number in descending order (newest first)
+   */
+  async loadAllEvents(): Promise<Event[]> {
+    // Return empty array if events directory doesn't exist
+    if (!existsSync(EVENTS_DIR)) {
+      return [];
+    }
+
+    // Read directory
+    const files = await readdir(EVENTS_DIR);
+
+    // Extract event numbers from filenames and sort descending
+    const eventNumbers: number[] = files
+      .map((filename) => this.extractEventNumber(filename))
+      .filter((num): num is number => num !== null)
+      .sort((a, b) => b - a); // Descending order: 93, 92, 91
+
+    // Load all events in parallel using Promise.all
+    // If any event fails to load, the entire operation will fail
+    const events = await Promise.all(
+      eventNumbers.map((eventNumber) => this.loadEvent(eventNumber))
+    );
+
+    return events;
   }
 }
