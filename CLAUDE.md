@@ -39,6 +39,14 @@ pnpm run generate-summary <event_number>
 pnpm run generate-summary 42
 ```
 
+**Run complete event setup workflow:**
+```bash
+pnpm run setup-event <event_number>
+# Example:
+pnpm run setup-event 93
+# This runs: create-event → create-broadcast → generate-connpass-texts
+```
+
 ## Architecture
 
 ### Script Execution
@@ -86,6 +94,8 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
 - Configuration: JST timezone (+09:00), default time (19:30)
 
 ### Workflow
+
+**Quick start**: For a complete event setup workflow, you can use `pnpm run setup-event <event_number>` which runs `create-event`, `create-broadcast`, and `generate-connpass-texts` in sequence.
 
 1. **Initial setup**: Run `auth.ts` to set up OAuth credentials via browser flow
    - Starts local server on port 3000 to receive OAuth callback
