@@ -8,6 +8,7 @@
     "create-broadcast": "node --experimental-strip-types scripts/create-broadcast.ts",
     "download-caption": "node --experimental-strip-types scripts/download-caption.ts",
     "generate-summary": "node --experimental-strip-types scripts/generate-summary.ts",
+    "generate-connpass-texts": "node --experimental-strip-types scripts/generate-connpass-texts.ts",
     "typecheck": "tsgo --noEmit"
   },
   "packageManager": "pnpm@10.7.1",
