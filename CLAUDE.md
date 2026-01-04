@@ -27,9 +27,10 @@ pnpm run create-event 93
 
 **Download captions from YouTube:**
 ```bash
-pnpm run download-caption -- --event <num> --url <youtube_url>
+pnpm run download-caption <event_number>
 # Example:
-pnpm run download-caption -- --event 42 --url https://youtube.com/live/Q3ZKvcPSnNE
+pnpm run download-caption 42
+# Note: YouTube URL is automatically fetched from event data
 ```
 
 **Generate summary from captions:**
@@ -116,12 +117,14 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
    - Prevents overwriting existing event files
    - Configuration: events directory (`./events/`)
 
-3. **Download captions**: Run `download-caption.ts` with event number and YouTube URL
+3. **Download captions**: Run `download-caption.ts` with event number
+   - Loads YouTube URL from event data (requires event to have youtubeUrl set via create-broadcast)
    - Extracts video ID from URL
    - Authenticates with saved tokens
    - Fetches available caption tracks
    - Selects Japanese track (manual preferred over auto-generated)
    - Downloads to `./tmp/captions/caption-{event}.srt`
+   - Converts SRT to plain text (`caption-{event}.txt`)
    - Skips if file already exists (no overwrite)
    - Configuration: captions directory (`./tmp/captions`)
 
