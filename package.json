@@ -5,6 +5,7 @@
   "scripts": {
     "auth": "node --experimental-strip-types scripts/auth.ts",
     "create-event": "node --experimental-strip-types scripts/create-event.ts",
+    "create-broadcast": "node --experimental-strip-types scripts/create-broadcast.ts",
     "download-caption": "node --experimental-strip-types scripts/download-caption.ts",
     "generate-summary": "node --experimental-strip-types scripts/generate-summary.ts",
     "typecheck": "tsgo --noEmit"
