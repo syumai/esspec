@@ -277,6 +277,26 @@ export class YouTubeClient {
         updatedSnippet.categoryId = (currentSnippet as any).categoryId;
       }
 
+      // Build updated contentDetails
+      const updatedContentDetails: any = {
+        latencyPreference: config.latencyPreference ?? currentContentDetails.latencyPreference,
+        enableAutoStart: currentContentDetails.enableAutoStart ?? false,
+        enableAutoStop: currentContentDetails.enableAutoStop ?? false,
+        enableDvr: currentContentDetails.enableDvr ?? true,
+        recordFromStart: currentContentDetails.recordFromStart ?? true,
+        enableClosedCaptions: currentContentDetails.enableClosedCaptions ?? true,
+      };
+
+      // Preserve monitorStream if it exists
+      if (currentContentDetails.monitorStream) {
+        updatedContentDetails.monitorStream = currentContentDetails.monitorStream;
+      } else {
+        // Set default monitorStream with enableMonitorStream: false
+        updatedContentDetails.monitorStream = {
+          enableMonitorStream: false,
+        };
+      }
+
       // Update the broadcast
       await this.youtube.liveBroadcasts.update({
         part: ['snippet', 'status', 'contentDetails'],
@@ -287,14 +307,7 @@ export class YouTubeClient {
             privacyStatus: config.privacyStatus ?? currentStatus.privacyStatus,
             selfDeclaredMadeForKids: currentStatus.selfDeclaredMadeForKids ?? false,
           },
-          contentDetails: {
-            latencyPreference: config.latencyPreference ?? currentContentDetails.latencyPreference,
-            enableAutoStart: currentContentDetails.enableAutoStart ?? false,
-            enableAutoStop: currentContentDetails.enableAutoStop ?? false,
-            enableDvr: currentContentDetails.enableDvr ?? true,
-            recordFromStart: currentContentDetails.recordFromStart ?? true,
-            enableClosedCaptions: currentContentDetails.enableClosedCaptions ?? true,
-          },
+          contentDetails: updatedContentDetails,
         },
       });
 
