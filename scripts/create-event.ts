@@ -7,6 +7,7 @@ import {
 } from './lib/date-utils.ts';
 import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
+import { z } from 'zod';
 
 interface CreateEventArgs {
   event: number;
@@ -61,6 +62,34 @@ async function promptForReadingRange(): Promise<string> {
     }
 
     return answer.trim();
+  } finally {
+    rl.close();
+  }
+}
+
+async function promptForConnpassUrl(): Promise<string | undefined> {
+  const rl = createInterface({ input, output });
+
+  try {
+    const answer = await rl.question('Connpass URLを入力してください（スキップする場合はEnter）: ');
+
+    const trimmed = answer.trim();
+
+    // 空文字列の場合はundefinedを返す（スキップ）
+    if (!trimmed) {
+      return undefined;
+    }
+
+    // URL形式のバリデーション（Zodスキーマを使用）
+    const urlSchema = z.string().url();
+
+    try {
+      urlSchema.parse(trimmed);
+      return trimmed;
+    } catch (error) {
+      console.error('\n[ERROR] 無効なURL形式です。正しいURLを入力してください。\n');
+      process.exit(1);
+    }
   } finally {
     rl.close();
   }
@@ -204,12 +233,16 @@ async function main() {
   // 2.5. Prompt for event date-time
   const eventDateTime = await promptForEventDateTime(eventManager, event);
 
+  // 2.6. Prompt for Connpass URL
+  const connpassUrl = await promptForConnpassUrl();
+
   // 3. Create event
   try {
     const createdEvent = await eventManager.createEvent({
       eventNumber: event,
       eventDateTime,
       readingRange,
+      connpassUrl,
     });
 
     console.log(`\n[SUCCESS] Event #${event} created successfully!`);
@@ -220,14 +253,11 @@ async function main() {
       `  Event date: ${formatToJapaneseDisplay(parseISODateTime(createdEvent.eventDateTime))}`
     );
     console.log(`  Reading range: ${createdEvent.readingRange}`);
+    if (createdEvent.connpassUrl) {
+      console.log(`  Connpass URL: ${createdEvent.connpassUrl}`);
+    }
     console.log(`  Scrapbox URL: ${createdEvent.scrapboxUrl}\n`);
     console.log('[INFO] Next steps:');
-    console.log(
-      '  - Add connpass URL using: pnpm run add-connpass-url (to be implemented)'
-    );
-    console.log(
-      '  - Add YouTube URL using: pnpm run add-youtube-url (to be implemented)'
-    );
     console.log(
       `  - Download captions: pnpm run download-caption -- --event ${event} --url <youtube_url>`
     );

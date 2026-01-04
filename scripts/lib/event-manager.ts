@@ -24,6 +24,7 @@ export const CreateEventInputSchema = z.object({
   eventNumber: z.number().int().positive(),
   eventDateTime: z.string().datetime({ offset: true }),
   readingRange: z.string().min(1),
+  connpassUrl: z.string().url().optional(),
 });
 
 export type CreateEventInput = z.infer<typeof CreateEventInputSchema>;
@@ -87,6 +88,7 @@ export class EventManager {
       eventName: this.generateEventName(validatedInput.eventNumber),
       eventDateTime: validatedInput.eventDateTime,
       readingRange: validatedInput.readingRange,
+      connpassUrl: validatedInput.connpassUrl,
       scrapboxUrl: this.generateScrapboxUrl(validatedInput.eventNumber),
       // Optional fields remain undefined
     };
