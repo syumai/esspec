@@ -6,7 +6,7 @@
 
 ## 過去の輪読会のサマリー一覧
 
-https://syumai.github.io/esspec/summaries/
+- https://syumai.github.io/esspec/summaries/
 
 ## 前提条件
 
