@@ -318,18 +318,40 @@ export class YouTubeClient {
       // Update categoryId using videos.update (liveBroadcasts.update doesn't support categoryId)
       if (config.categoryId !== undefined) {
         try {
+          // First, get current video data to preserve other fields
+          const videoResponse = await this.youtube.videos.list({
+            part: ['snippet'],
+            id: [broadcastId],
+          });
+
+          if (!videoResponse.data.items || videoResponse.data.items.length === 0) {
+            throw new Error(`Video not found: ${broadcastId}`);
+          }
+
+          const currentVideo = videoResponse.data.items[0];
+          const currentVideoSnippet = currentVideo.snippet!;
+
+          // Update video with categoryId, preserving other fields
           await this.youtube.videos.update({
             part: ['snippet'],
             requestBody: {
               id: broadcastId,
               snippet: {
+                title: currentVideoSnippet.title,
+                description: currentVideoSnippet.description,
                 categoryId: String(config.categoryId),
+                tags: currentVideoSnippet.tags,
+                defaultLanguage: currentVideoSnippet.defaultLanguage,
+                defaultAudioLanguage: currentVideoSnippet.defaultAudioLanguage,
               },
             },
           });
-          console.log(`[INFO] Category updated to: ${config.categoryId}`);
+          console.log(`[SUCCESS] Category updated to: ${config.categoryId}`);
         } catch (error: any) {
-          console.log(`[WARN] Failed to update category: ${error.message}`);
+          console.error(`[ERROR] Failed to update category: ${error.message}`);
+          if (error.code === 403) {
+            console.error('[ERROR] Permission denied. Make sure your OAuth credentials have the correct scopes (youtube.force-ssl).');
+          }
           // Don't throw - category update failure shouldn't fail the whole operation
         }
       }
