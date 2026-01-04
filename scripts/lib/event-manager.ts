@@ -10,6 +10,7 @@ const EVENTS_DIR = './events';
 export const EventSchema = z.object({
   eventNumber: z.number().int().positive(),
   eventName: z.string().min(1),
+  eventDateTime: z.string().datetime({ offset: true }),
   readingRange: z.string().min(1),
   connpassUrl: z.string().url().optional(),
   youtubeUrl: z.string().url().optional(),
@@ -21,6 +22,7 @@ export type Event = z.infer<typeof EventSchema>;
 // Schema for creating new events (without URLs)
 export const CreateEventInputSchema = z.object({
   eventNumber: z.number().int().positive(),
+  eventDateTime: z.string().datetime({ offset: true }),
   readingRange: z.string().min(1),
 });
 
@@ -83,6 +85,7 @@ export class EventManager {
     const event: Event = {
       eventNumber: validatedInput.eventNumber,
       eventName: this.generateEventName(validatedInput.eventNumber),
+      eventDateTime: validatedInput.eventDateTime,
       readingRange: validatedInput.readingRange,
       scrapboxUrl: this.generateScrapboxUrl(validatedInput.eventNumber),
       // Optional fields remain undefined

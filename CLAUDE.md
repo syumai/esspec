@@ -52,7 +52,7 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
 - Stores events as YAML files in `./events/` directory
 - Auto-generates event names and Scrapbox URLs
 - Supports creating, loading, and updating events
-- Event schema includes: eventNumber, eventName, readingRange, connpassUrl (optional), youtubeUrl (optional), scrapboxUrl
+- Event schema includes: eventNumber, eventName, eventDateTime, readingRange, connpassUrl (optional), youtubeUrl (optional), scrapboxUrl
 - Configuration: events directory (`./events/`)
 
 **scripts/lib/auth-manager.ts**: OAuth 2.0 authentication
@@ -77,6 +77,14 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
 - Extracts video IDs from various YouTube URL formats
 - Supports: /watch, /live, /embed, /v, youtu.be URLs
 
+**scripts/lib/date-utils.ts**: Date utility functions
+- Handles date-time operations for event management
+- Parses and formats ISO 8601 datetime strings (JST timezone)
+- Calculates suggested event dates (2 weeks after previous event)
+- Formats dates for Japanese display (e.g., "2026/01/06(月) 19:30")
+- Validates user input for date and time
+- Configuration: JST timezone (+09:00), default time (19:30)
+
 ### Workflow
 
 1. **Initial setup**: Run `auth.ts` to set up OAuth credentials via browser flow
@@ -86,6 +94,11 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
 
 2. **Create event**: Run `create-event.ts` with event number
    - Prompts user for reading range (輪読の範囲)
+   - Prompts user for event date-time:
+     - If previous event exists: suggests 2 weeks after previous event's date (default time: 19:30 JST)
+     - User can accept suggestion (y), decline (n) for manual input, or directly enter custom date-time
+     - Accepts formats: "YYYY/MM/DD" or "YYYY/MM/DD HH:MM"
+     - Date-time is stored in ISO 8601 format with JST timezone (e.g., "2026-01-06T19:30:00+09:00")
    - Auto-generates event name: "ECMAScript 仕様輪読会 第{N}回"
    - Auto-generates Scrapbox URL: `https://scrapbox.io/esspec/ECMAScript仕様輪読会_#{N}`
    - Validates input with Zod schema
