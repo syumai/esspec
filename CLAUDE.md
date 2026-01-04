@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a TypeScript-based tool for downloading YouTube video captions and generating summaries using Gemini AI. The project is specifically designed for ECMAScript specification study sessions (輪読会), downloading Japanese captions and generating detailed summaries in Japanese.
+This is a TypeScript-based tool for managing ECMAScript specification study sessions (輪読会). It provides event management, YouTube video caption downloading, and AI-powered summary generation using Gemini AI. Event information is stored as YAML files with schema validation via Zod.
 
 ## Development Commands
 
@@ -16,6 +16,13 @@ pnpm run typecheck
 **Authentication setup (run once):**
 ```bash
 pnpm run auth
+```
+
+**Create new event:**
+```bash
+pnpm run create-event <event_number>
+# Example:
+pnpm run create-event 93
 ```
 
 **Download captions from YouTube:**
@@ -39,6 +46,14 @@ pnpm run generate-summary -- --event 42
 All scripts are executed using Node.js with `--experimental-strip-types` flag, which allows running TypeScript files directly without compilation. This is configured in package.json scripts.
 
 ### Core Components
+
+**scripts/lib/event-manager.ts**: Event management
+- Manages event data with Zod schema validation
+- Stores events as YAML files in `./events/` directory
+- Auto-generates event names and Scrapbox URLs
+- Supports creating, loading, and updating events
+- Event schema includes: eventNumber, eventName, readingRange, connpassUrl (optional), youtubeUrl (optional), scrapboxUrl
+- Configuration: events directory (`./events/`)
 
 **scripts/lib/auth-manager.ts**: OAuth 2.0 authentication
 - Manages Google OAuth 2.0 credentials for YouTube Data API
@@ -69,7 +84,16 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
    - Opens browser for Google authentication
    - Saves tokens to `~/.local/esspec/tokens.json`
 
-2. **Download captions**: Run `download-caption.ts` with event number and YouTube URL
+2. **Create event**: Run `create-event.ts` with event number
+   - Prompts user for reading range (輪読の範囲)
+   - Auto-generates event name: "ECMAScript 仕様輪読会 第{N}回"
+   - Auto-generates Scrapbox URL: `https://scrapbox.io/esspec/ECMAScript仕様輪読会_#{N}`
+   - Validates input with Zod schema
+   - Saves event data to `./events/event-{event}.yaml`
+   - Prevents overwriting existing event files
+   - Configuration: events directory (`./events/`)
+
+3. **Download captions**: Run `download-caption.ts` with event number and YouTube URL
    - Extracts video ID from URL
    - Authenticates with saved tokens
    - Fetches available caption tracks
@@ -78,7 +102,7 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
    - Skips if file already exists (no overwrite)
    - Configuration: captions directory (`./tmp/captions`)
 
-3. **Generate summary**: Run `generate-summary.ts` with event number
+4. **Generate summary**: Run `generate-summary.ts` with event number
    - Reads caption from `./tmp/captions/caption-{event}.txt`
    - Calls Gemini CLI with Japanese prompt (detailed summaries, skip introductions)
    - Saves markdown summary to `./summaries/summary-{event}.md`
@@ -105,5 +129,6 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
 - All scripts use `.ts` extensions in imports due to Node.js module resolution with `rewriteRelativeImportExtensions`
 - Configuration values (paths, timeouts, prompts) are defined directly in each script/module as constants
 - Credentials are stored in `~/.local/esspec/` for security (tokens.json has 0600 permissions)
-- Caption files are never overwritten; summary files are overwritten
+- Event files and caption files are never overwritten; summary files are overwritten
+- Event data is validated using Zod schemas at runtime
 - Error handling includes specific messages for quota limits, permissions, and missing files
