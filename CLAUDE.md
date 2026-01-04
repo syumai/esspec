@@ -40,6 +40,23 @@ pnpm run generate-summary <event_number>
 pnpm run generate-summary 42
 ```
 
+**Create YouTube Live broadcast:**
+```bash
+pnpm run create-broadcast <event_number>
+# Example:
+pnpm run create-broadcast 93
+# This creates a YouTube Live broadcast and saves the URL to the event file
+```
+
+**Generate Connpass event templates:**
+```bash
+pnpm run generate-connpass-texts <event_number>
+# Example:
+pnpm run generate-connpass-texts 93
+# Requires environment variables: ESSPEC_ZOOM_URL, ESSPEC_DISCORD_URL
+# Generates 4 template files in ./tmp/connpass/
+```
+
 **Run complete event setup workflow:**
 ```bash
 pnpm run setup-event <event_number>
@@ -75,7 +92,11 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
 - Fetches available caption tracks for videos
 - Downloads captions in SRT format
 - Selects Japanese captions (prefers manual over auto-generated)
-- Configuration: caption format (SRT), preferred language (Japanese)
+- Creates YouTube Live broadcasts with configuration
+- Updates existing broadcasts
+- Creates live streams and binds them to broadcasts
+- Orchestrates complete broadcast setup workflow
+- Configuration: caption format (SRT), preferred language (Japanese), default category ID (28 - Science & Technology)
 
 **scripts/lib/gemini-client.ts**: Gemini AI integration
 - Uses Gemini CLI (must be installed globally: `npm install -g @google/gemini-cli`)
@@ -94,9 +115,24 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
 - Validates user input for date and time
 - Configuration: JST timezone (+09:00), default time (19:30)
 
+**scripts/lib/srt-parser.ts**: SRT subtitle parser
+- Parses SRT (SubRip Subtitle) format files
+- Extracts plain dialogue text, removing sequence numbers and timestamps
+- Preserves original line breaks in dialogue
+- Used during caption download to create .txt version alongside .srt
+- Configuration: none (pure parser utility)
+
+**scripts/lib/connpass-text-generator.ts**: Connpass template generator
+- Generates event body template with timetable and participation requirements
+- Generates participant info template (Zoom, YouTube Live, Scrapbox, Discord URLs)
+- Generates event message template for participant communication
+- Generates event info text (title, number, date-time)
+- Validates that YouTube URL exists before generating participant-facing templates
+- Configuration: timetable timing (start, break at +1h, end at +2h)
+
 ### Workflow
 
-**Quick start**: For a complete event setup workflow, you can use `pnpm run setup-event <event_number>` which runs `create-event`, `create-broadcast`, and `generate-connpass-texts` in sequence.
+**Quick start**: For a complete event setup workflow, you can use `pnpm run setup-event <event_number>` which runs `create-event`, `create-broadcast`, and `generate-connpass-texts` in sequence. This is the recommended approach for new events.
 
 1. **Initial setup**: Run `auth.ts` to set up OAuth credentials via browser flow
    - Starts local server on port 3000 to receive OAuth callback
@@ -117,18 +153,40 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
    - Prevents overwriting existing event files
    - Configuration: events directory (`./events/`)
 
-3. **Download captions**: Run `download-caption.ts` with event number
+3. **Create broadcast**: Run `create-broadcast.ts` with event number
+   - Loads event data from `./events/event-{event}.yaml`
+   - Authenticates with saved tokens
+   - Creates YouTube Live broadcast with event details
+   - Configures broadcast: title (from event), description (reading range + URLs), scheduled time, privacy (public), latency (normal), category (28 - Science & Technology)
+   - Creates RTMP stream and binds to broadcast
+   - Returns stream key and ingestion address for OBS/streaming software
+   - Saves YouTube URL to event file
+   - If YouTube URL already exists, prompts to update existing broadcast or create new one
+   - Configuration: broadcast settings (privacy, latency, category), stream settings (RTMP, variable resolution/framerate)
+
+4. **Generate Connpass templates**: Run `generate-connpass-texts.ts` with event number
+   - Loads event data from `./events/event-{event}.yaml`
+   - Requires environment variables: ESSPEC_ZOOM_URL, ESSPEC_DISCORD_URL
+   - Generates event body with timetable (start time, break at +1h, end at +2h)
+   - Generates participant info (Zoom, YouTube Live, Scrapbox, Discord URLs)
+   - Generates event message for participant communication
+   - Generates event info summary (title, number, date-time)
+   - Saves 4 markdown/text files to `./tmp/connpass/`
+   - Configuration: timetable timing, template structure
+
+5. **Download captions**: Run `download-caption.ts` with event number
    - Loads YouTube URL from event data (requires event to have youtubeUrl set via create-broadcast)
    - Extracts video ID from URL
    - Authenticates with saved tokens
    - Fetches available caption tracks
    - Selects Japanese track (manual preferred over auto-generated)
    - Downloads to `./tmp/captions/caption-{event}.srt`
-   - Converts SRT to plain text (`caption-{event}.txt`)
-   - Skips if file already exists (no overwrite)
+   - Converts SRT to plain text using SRTParser
+   - Saves plain text version to `./tmp/captions/caption-{event}.txt`
+   - Skips if SRT file already exists (no overwrite)
    - Configuration: captions directory (`./tmp/captions`)
 
-4. **Generate summary**: Run `generate-summary.ts` with event number
+6. **Generate summary**: Run `generate-summary.ts` with event number
    - Reads caption from `./tmp/captions/caption-{event}.txt`
    - Calls Gemini CLI with Japanese prompt (detailed summaries, skip introductions)
    - Saves markdown summary to `./summaries/summary-{event}.md`
@@ -148,6 +206,9 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
 - pnpm 10.7.1 (specified in packageManager)
 - Node.js with TypeScript strip-types support (Node 20.16.0+)
 - Google Cloud OAuth 2.0 credentials for YouTube Data API
+- Environment variables (for Connpass template generation):
+  - `ESSPEC_ZOOM_URL`: Zoom meeting URL
+  - `ESSPEC_DISCORD_URL`: Discord server URL
 - Gemini CLI installed globally: `npm install -g @google/gemini-cli`
 
 ## Important Notes
@@ -155,6 +216,9 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
 - All scripts use `.ts` extensions in imports due to Node.js module resolution with `rewriteRelativeImportExtensions`
 - Configuration values (paths, timeouts, prompts) are defined directly in each script/module as constants
 - Credentials are stored in `~/.local/esspec/` for security (tokens.json has 0600 permissions)
-- Event files and caption files are never overwritten; summary files are overwritten
+- Event files and caption SRT files are never overwritten; caption TXT files and summary files are overwritten
+- Caption download automatically creates both SRT and TXT versions
+- Connpass template files are overwritten on each generation
+- Positional argument support: most scripts accept `<event_number>` as a simple positional argument instead of `-- --event <event_number>`
 - Event data is validated using Zod schemas at runtime
 - Error handling includes specific messages for quota limits, permissions, and missing files
