@@ -6,6 +6,7 @@ import {
   parseISODateTime,
 } from './lib/date-utils.ts';
 import { parseEventNumberArg } from './lib/arg-parser.ts';
+import { normalizeUrl } from './lib/url-normalizer.ts';
 import { createInterface } from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
 import { z } from 'zod';
@@ -45,7 +46,7 @@ async function promptForConnpassUrl(): Promise<string | undefined> {
 
     try {
       urlSchema.parse(trimmed);
-      return trimmed;
+      return normalizeUrl(trimmed);
     } catch (error) {
       console.error('\n[ERROR] 無効なURL形式です。正しいURLを入力してください。\n');
       process.exit(1);
