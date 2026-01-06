@@ -242,6 +242,54 @@ export class YouTubeClient {
   }
 
   /**
+   * List all live streams for the authenticated user
+   * Returns reusable streams that can be bound to broadcasts
+   */
+  async listLiveStreams(): Promise<Array<{
+    id: string;
+    title: string;
+    isReusable: boolean;
+    ingestionInfo: any;
+  }>> {
+    try {
+      console.log('[INFO] Fetching existing live streams...');
+
+      const response = await this.youtube.liveStreams.list({
+        part: ['snippet', 'cdn', 'contentDetails'],
+        mine: true,
+      });
+
+      if (!response.data.items || response.data.items.length === 0) {
+        console.log('[INFO] No existing streams found');
+        return [];
+      }
+
+      const streams = response.data.items.map((item) => ({
+        id: item.id!,
+        title: item.snippet!.title!,
+        isReusable: item.contentDetails?.isReusable ?? false,
+        ingestionInfo: item.cdn?.ingestionInfo,
+      }));
+
+      console.log(`[INFO] Found ${streams.length} stream(s):`);
+      streams.forEach((stream) => {
+        const reusableStatus = stream.isReusable ? '(reusable)' : '(non-reusable)';
+        console.log(`  - ${stream.title} ${reusableStatus}`);
+      });
+
+      return streams;
+    } catch (error: any) {
+      if (error.code === 403) {
+        throw new Error('YouTube Data API quota exceeded. Please try again tomorrow or request a quota increase at https://console.cloud.google.com/apis/api/youtube.googleapis.com/quotas');
+      } else if (error.code === 401) {
+        throw new Error('Authentication failed. Please run: pnpm run auth');
+      } else {
+        throw new Error(`Failed to fetch live streams: ${error.message}`);
+      }
+    }
+  }
+
+  /**
    * Update an existing live broadcast
    */
   async updateLiveBroadcast(broadcastId: string, config: Partial<LiveBroadcastConfig>): Promise<void> {
@@ -399,7 +447,7 @@ export class YouTubeClient {
 
   /**
    * Create a complete live broadcast with stream
-   * Orchestrates the full workflow: create broadcast, create stream, bind them together
+   * Orchestrates the full workflow: create broadcast, find existing stream, bind them together
    */
   async createCompleteBroadcast(
     broadcastConfig: LiveBroadcastConfig,
@@ -412,9 +460,19 @@ export class YouTubeClient {
       // Step 1: Create broadcast
       broadcastId = await this.createLiveBroadcast(broadcastConfig);
 
-      // Step 2: Create stream
-      const { streamId: createdStreamId, ingestionInfo } = await this.createLiveStream(streamConfig);
-      streamId = createdStreamId;
+      // Step 2: Find existing stream
+      console.log('[INFO] Looking for existing reusable streams...');
+      const existingStreams = await this.listLiveStreams();
+
+      if (existingStreams.length === 0) {
+        throw new Error('再利用可能なストリームが見つかりません。YouTube Studio で事前にストリームを作成してください。');
+      }
+
+      // Use first stream
+      const stream = existingStreams[0];
+      streamId = stream.id;
+      const ingestionInfo = stream.ingestionInfo;
+      console.log(`[INFO] Using existing reusable stream: ${stream.title}`);
 
       // Step 3: Bind broadcast to stream
       await this.bindBroadcastToStream(broadcastId, streamId);
