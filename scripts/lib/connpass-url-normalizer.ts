@@ -1,8 +1,8 @@
 /**
- * Normalize URLs by removing /edit suffix while preserving trailing slashes
+ * Normalize Connpass event URLs by removing /edit suffix while preserving trailing slashes
  *
- * This utility removes the `/edit` or `/edit/` suffix from URLs (commonly used
- * in connpass event management URLs) while preserving the original trailing slash.
+ * This utility removes the `/edit` or `/edit/` suffix from Connpass event management URLs
+ * while preserving the original trailing slash.
  *
  * Examples:
  * - https://connpass.com/event/379664/edit/  → https://connpass.com/event/379664/
@@ -12,12 +12,12 @@
  */
 
 /**
- * Normalize URL by removing /edit suffix while preserving trailing slashes
- * @param url - URL string to normalize
- * @returns Normalized URL string
+ * Normalize Connpass event URL by removing /edit suffix while preserving trailing slashes
+ * @param url - Connpass event URL string to normalize
+ * @returns Normalized Connpass event URL string
  * @throws Error if URL is malformed
  */
-export function normalizeUrl(url: string): string {
+export function normalizeConnpassUrl(url: string): string {
   const urlObj = new URL(url);
   let pathname = urlObj.pathname;
 
