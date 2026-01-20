@@ -9,7 +9,7 @@
     "download-caption": "node --experimental-strip-types scripts/download-caption.ts",
     "generate-summary": "node --experimental-strip-types scripts/generate-summary.ts",
     "generate-summaries-index": "node --experimental-strip-types scripts/generate-summaries-index.ts",
-    "generate-connpass-texts": "node --experimental-strip-types scripts/generate-connpass-texts.ts",
+    "generate-connpass-text": "node --experimental-strip-types scripts/generate-connpass-text.ts",
     "setup-event": "sh -c 'pnpm run create-event \"$0\" && pnpm run create-broadcast \"$0\" && pnpm run generate-connpass-texts \"$0\"' --",
     "typecheck": "tsgo --noEmit"
   },

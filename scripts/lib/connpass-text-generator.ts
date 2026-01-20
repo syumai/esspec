@@ -133,3 +133,35 @@ export function generateEventInfo(event: Event, startTime: Date): string {
 イベント番号: ${event.eventNumber}
 開始日時: ${formatToJapaneseDisplay(startTime)}`;
 }
+
+/**
+ * Generate combined connpass template with all sections
+ */
+export function generateCombinedConnpassText(
+  event: Event,
+  startTime: Date,
+  zoomUrl: string,
+  discordUrl: string
+): string {
+  const body = generateEventBody(event, startTime);
+  const participantInfo = generateParticipantInfo(event, zoomUrl, discordUrl);
+  const message = generateEventMessage(event, zoomUrl, discordUrl);
+  const info = generateEventInfo(event, startTime);
+
+  return `<section name="connpass-event-info">
+${info}
+</section>
+
+<section name="connpass-event-body">
+${body}
+</section>
+
+<section name="connpass-event-participant-info">
+${participantInfo}
+</section>
+
+<section name="connpass-event-message">
+${message}
+</section>
+`;
+}

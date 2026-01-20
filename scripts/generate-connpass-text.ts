@@ -1,10 +1,5 @@
 import { EventManager, type Event } from './lib/event-manager.ts';
-import {
-  generateEventBody,
-  generateParticipantInfo,
-  generateEventMessage,
-  generateEventInfo,
-} from './lib/connpass-text-generator.ts';
+import { generateCombinedConnpassText } from './lib/connpass-text-generator.ts';
 import { parseISODateTime } from './lib/date-utils.ts';
 import { parseEventNumberArg } from './lib/arg-parser.ts';
 import { join } from 'node:path';
@@ -50,42 +45,28 @@ async function main() {
   // 3. Extract start time from eventDateTime
   const startTime = parseISODateTime(eventData.eventDateTime);
 
-  // 4. Generate templates
-  const eventBody = generateEventBody(eventData, startTime);
-  const participantInfo = generateParticipantInfo(
+  // 4. Generate combined template
+  const combinedContent = generateCombinedConnpassText(
     eventData,
+    startTime,
     zoomUrl,
     discordUrl
   );
-  const eventMessage = generateEventMessage(eventData, zoomUrl, discordUrl);
-  const eventInfo = generateEventInfo(eventData, startTime);
 
   // 5. Create output directory if it doesn't exist
   if (!existsSync(CONNPASS_DIR)) {
     await mkdir(CONNPASS_DIR, { recursive: true });
   }
 
-  // 6. Write files
-  const bodyPath = join(CONNPASS_DIR, `event-${event}-body.md`);
-  const participantInfoPath = join(
-    CONNPASS_DIR,
-    `event-${event}-participant-info.md`
-  );
-  const messagePath = join(CONNPASS_DIR, `event-${event}-message.md`);
-  const infoPath = join(CONNPASS_DIR, `event-${event}-info.txt`);
+  // 6. Write file
+  const outputPath = join(CONNPASS_DIR, `event-${event}-connpass.md`);
 
   try {
-    await writeFile(bodyPath, eventBody, 'utf-8');
-    await writeFile(participantInfoPath, participantInfo, 'utf-8');
-    await writeFile(messagePath, eventMessage, 'utf-8');
-    await writeFile(infoPath, eventInfo, 'utf-8');
+    await writeFile(outputPath, combinedContent, 'utf-8');
 
-    console.log('[SUCCESS] Connpass texts generated successfully!\n');
-    console.log('[INFO] Generated files:');
-    console.log(`  - ${bodyPath}`);
-    console.log(`  - ${participantInfoPath}`);
-    console.log(`  - ${messagePath}`);
-    console.log(`  - ${infoPath}\n`);
+    console.log('[SUCCESS] Connpass template generated successfully!\n');
+    console.log('[INFO] Generated file:');
+    console.log(`  - ${outputPath}\n`);
 
     if (!eventData.youtubeUrl) {
       console.warn(
@@ -93,7 +74,7 @@ async function main() {
       );
     }
   } catch (error) {
-    console.error(`[ERROR] Failed to write files: ${(error as Error).message}\n`);
+    console.error(`[ERROR] Failed to write file: ${(error as Error).message}\n`);
     process.exit(1);
   }
 }

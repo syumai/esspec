@@ -54,7 +54,8 @@ pnpm run generate-connpass-texts <event_number>
 # Example:
 pnpm run generate-connpass-texts 93
 # Requires environment variables: ESSPEC_ZOOM_URL, ESSPEC_DISCORD_URL
-# Generates 4 template files in ./tmp/connpass/
+# Generates a single template file: ./tmp/connpass/event-{N}-connpass.md
+# Contains all sections with XML-style separators
 ```
 
 **Run complete event setup workflow:**
@@ -127,6 +128,7 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
 - Generates participant info template (Zoom, YouTube Live, Scrapbox, Discord URLs)
 - Generates event message template for participant communication
 - Generates event info text (title, number, date-time)
+- Generates combined template with all sections using XML-style separators (`<section name="connpass-event-*">`)
 - Validates that YouTube URL exists before generating participant-facing templates
 - Configuration: timetable timing (start, break at +1h, end at +2h)
 
@@ -175,11 +177,12 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
 4. **Generate Connpass templates**: Run `generate-connpass-texts.ts` with event number
    - Loads event data from `./events/event-{event}.yaml`
    - Requires environment variables: ESSPEC_ZOOM_URL, ESSPEC_DISCORD_URL
-   - Generates event body with timetable (start time, break at +1h, end at +2h)
-   - Generates participant info (Zoom, YouTube Live, Scrapbox, Discord URLs)
-   - Generates event message for participant communication
-   - Generates event info summary (title, number, date-time)
-   - Saves 4 markdown/text files to `./tmp/connpass/`
+   - Generates combined template with XML-style section separators:
+     - `<section name="connpass-event-info">`: Event info summary (title, number, date-time)
+     - `<section name="connpass-event-body">`: Event body with timetable
+     - `<section name="connpass-event-participant-info">`: Zoom, YouTube Live, Scrapbox, Discord URLs
+     - `<section name="connpass-event-message">`: Message for participant communication
+   - Saves single file to `./tmp/connpass/event-{N}-connpass.md`
    - Configuration: timetable timing, template structure
 
 5. **Download captions**: Run `download-caption.ts` with event number
@@ -226,7 +229,7 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
 - Credentials are stored in `~/.local/esspec/` for security (tokens.json has 0600 permissions)
 - Event files and caption SRT files are never overwritten; caption TXT files and summary files are overwritten
 - Caption download automatically creates both SRT and TXT versions
-- Connpass template files are overwritten on each generation
+- Connpass template file is overwritten on each generation
 - All event-related scripts accept `<event_number>` as a positional argument, parsed via shared arg-parser library
 - Event data is validated using Zod schemas at runtime
 - Error handling includes specific messages for quota limits, permissions, and missing files
