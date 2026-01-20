@@ -90,15 +90,14 @@ async function main() {
     }
   }
 
-  // 3. Authenticate
+  // 3. Authenticate (with automatic re-authentication if tokens are expired)
   const authManager = new AuthManager();
   let authClient;
 
   try {
-    authClient = await authManager.getAuthClient();
+    authClient = await authManager.getAuthClient({ autoReauthenticate: true });
   } catch (error) {
     console.error((error as Error).message);
-    console.error('\nPlease run authentication first: pnpm run auth\n');
     process.exit(1);
   }
 
