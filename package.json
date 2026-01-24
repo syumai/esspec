@@ -10,7 +10,7 @@
     "generate-summary": "node --experimental-strip-types scripts/generate-summary.ts",
     "generate-summaries-index": "node --experimental-strip-types scripts/generate-summaries-index.ts",
     "generate-connpass-text": "node --experimental-strip-types scripts/generate-connpass-text.ts",
-    "setup-event": "sh -c 'pnpm run create-event \"$0\" && pnpm run create-broadcast \"$0\" && pnpm run generate-connpass-texts \"$0\"' --",
+    "setup-event": "sh -c 'pnpm run create-event \"$0\" && pnpm run create-broadcast \"$0\" && pnpm run generate-connpass-text \"$0\"'",
     "typecheck": "tsgo --noEmit"
   },
   "packageManager": "pnpm@10.7.1",
