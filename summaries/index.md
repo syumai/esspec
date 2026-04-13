@@ -2,7 +2,8 @@
 
 | イベント | 開催日時 | サマリー |
 |:---:|:---:|:---|
-| [#98](https://connpass.com/event/387980/) | 2026/03/31(火) 19:30 | サマリー未作成 |
+| [#99](https://connpass.com/event/389425/) | 2026/04/14(火) 19:30 | サマリー未作成 |
+| [#98](https://connpass.com/event/387980/) | 2026/03/31(火) 19:30 | [サマリー](./summary-98.md) |
 | [#97](https://connpass.com/event/386516/) | 2026/03/17(火) 19:30 | [サマリー](./summary-97.md) |
 | [#96](https://connpass.com/event/383600/) | 2026/03/03(火) 19:30 | [サマリー](./summary-96.md) |
 | [#95](https://connpass.com/event/382142/) | 2026/02/03(火) 19:30 | [サマリー](./summary-95.md) |
