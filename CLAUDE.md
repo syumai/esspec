@@ -101,8 +101,15 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
 
 **scripts/lib/gemini-client.ts**: Gemini AI integration
 - Uses Gemini CLI (must be installed globally: `npm install -g @google/gemini-cli`)
-- Generates summaries from caption files
+- Generates summaries from caption files with optional Scrapbox memo content
 - Configuration: 5-minute timeout, 10MB buffer for large outputs
+
+**scripts/lib/scrapbox-client.ts**: Scrapbox API client
+- Fetches page text from Scrapbox `/api/pages/{project}/{page}/text` endpoint
+- Extracts content after the "今回のメモ" heading (code examples and notes from the session)
+- Used during summary generation to provide additional context alongside captions
+- Best-effort: returns null on failure (network errors, missing page/section)
+- Configuration: project name (`esspec`), API base URL (`https://scrapbox.io/api/pages`)
 
 **scripts/lib/video-id-extractor.ts**: URL parser
 - Extracts video IDs from various YouTube URL formats
@@ -199,7 +206,8 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
 
 6. **Generate summary**: Run `generate-summary.ts` with event number
    - Reads caption from `./tmp/captions/caption-{event}.txt`
-   - Calls Gemini CLI with Japanese prompt (detailed summaries, skip introductions)
+   - Fetches Scrapbox page text via API and extracts "今回のメモ" section (best-effort, proceeds without it on failure)
+   - Calls Gemini CLI with Japanese prompt (detailed summaries, skip introductions), caption content, and Scrapbox memo content (if available)
    - Saves markdown summary to `./summaries/summary-{event}.md`
    - Overwrites existing summaries
    - Configuration: captions directory (`./tmp/captions`), summaries directory (`./summaries`), Gemini prompt

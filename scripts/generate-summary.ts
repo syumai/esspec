@@ -1,4 +1,5 @@
 import { GeminiClient } from './lib/gemini-client.ts';
+import { ScrapboxClient } from './lib/scrapbox-client.ts';
 import { parseEventNumberArg } from './lib/arg-parser.ts';
 import { updateSummariesIndex } from './lib/summaries-index-updater.ts';
 import { join } from 'node:path';
@@ -28,24 +29,40 @@ async function main() {
 
   console.log(`[INFO] Caption file: ${captionPath}`);
 
-  // 2. Initialize Gemini client
+  // 2. Fetch Scrapbox memo content (best-effort)
+  const scrapboxClient = new ScrapboxClient();
+  let scrapboxMemo: string | undefined;
+  try {
+    const memo = await scrapboxClient.fetchMemoContent(event);
+    if (memo) {
+      scrapboxMemo = memo;
+      console.log('[INFO] Scrapbox memo content found and will be included.\n');
+    } else {
+      console.log('[INFO] No Scrapbox memo content found. Proceeding with captions only.\n');
+    }
+  } catch (error) {
+    console.warn(`[WARN] Failed to fetch Scrapbox content: ${(error as Error).message}`);
+    console.warn('[WARN] Proceeding with captions only.\n');
+  }
+
+  // 3. Initialize Gemini client
   const geminiClient = new GeminiClient();
 
-  // 3. Generate summary
+  // 4. Generate summary
   let summary;
   try {
-    summary = await geminiClient.generateSummary(captionPath, GEMINI_PROMPT);
+    summary = await geminiClient.generateSummary(captionPath, GEMINI_PROMPT, scrapboxMemo);
   } catch (error) {
     console.error(`[ERROR] ${(error as Error).message}\n`);
     process.exit(1);
   }
 
-  // 4. Create summaries directory if it doesn't exist
+  // 5. Create summaries directory if it doesn't exist
   if (!existsSync(SUMMARIES_DIR)) {
     await mkdir(SUMMARIES_DIR, { recursive: true });
   }
 
-  // 5. Write summary to file
+  // 6. Write summary to file
   const outputPath = join(SUMMARIES_DIR, `summary-${event}.md`);
 
   if (existsSync(outputPath)) {
@@ -62,7 +79,7 @@ async function main() {
     process.exit(1);
   }
 
-  // 6. Update summaries index
+  // 7. Update summaries index
   console.log('[INFO] Updating summaries index...\n');
   try {
     await updateSummariesIndex();

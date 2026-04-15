@@ -23,7 +23,7 @@ export class GeminiClient {
   /**
    * Generate a summary from a caption file using Gemini CLI
    */
-  async generateSummary(captionFile: string, prompt: string): Promise<string> {
+  async generateSummary(captionFile: string, prompt: string, scrapboxMemo?: string): Promise<string> {
     // Check if Gemini CLI is installed
     const isInstalled = await this.checkInstalled();
     if (!isInstalled) {
@@ -42,7 +42,11 @@ export class GeminiClient {
     console.log('[INFO] This may take a few minutes...\n');
 
     // Construct the full prompt with caption content
-    const fullPrompt = `${prompt}\n\n以下は字幕ファイルの内容です：\n\n${captionContent}`;
+    let fullPrompt = `${prompt}\n\n以下は字幕ファイルの内容です：\n\n${captionContent}`;
+
+    if (scrapboxMemo) {
+      fullPrompt += `\n\n以下はScrapboxページの「今回のメモ」セクションの内容です。勉強会中に書かれたコード例やメモが含まれています：\n\n${scrapboxMemo}`;
+    }
 
     try {
       // Execute Gemini CLI
