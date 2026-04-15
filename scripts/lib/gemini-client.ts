@@ -1,6 +1,6 @@
-import { exec } from 'node:child_process';
-import { promisify } from 'node:util';
-import { readFile } from 'node:fs/promises';
+import { exec } from "node:child_process";
+import { promisify } from "node:util";
+import { readFile } from "node:fs/promises";
 
 const execAsync = promisify(exec);
 
@@ -13,7 +13,7 @@ export class GeminiClient {
    */
   async checkInstalled(): Promise<boolean> {
     try {
-      await execAsync('which gemini');
+      await execAsync("which gemini");
       return true;
     } catch {
       return false;
@@ -23,29 +23,33 @@ export class GeminiClient {
   /**
    * Generate a summary from a caption file using Gemini CLI
    */
-  async generateSummary(captionFile: string, prompt: string, scrapboxMemo?: string): Promise<string> {
+  async generateSummary(
+    captionFile: string,
+    prompt: string,
+    scrapboxMemo?: string
+  ): Promise<string> {
     // Check if Gemini CLI is installed
     const isInstalled = await this.checkInstalled();
     if (!isInstalled) {
       throw new Error(
-        'Gemini CLI is not installed.\n' +
-        'Please install it globally:\n' +
-        '  npm install -g @google/gemini-cli\n' +
-        '\nFor more information, visit: https://github.com/google-gemini/gemini-cli'
+        "Gemini CLI is not installed.\n" +
+          "Please install it globally:\n" +
+          "  npm install -g @google/gemini-cli\n" +
+          "\nFor more information, visit: https://github.com/google-gemini/gemini-cli"
       );
     }
 
-    console.log('[INFO] Reading caption file...');
-    const captionContent = await readFile(captionFile, 'utf-8');
+    console.log("[INFO] Reading caption file...");
+    const captionContent = await readFile(captionFile, "utf-8");
 
-    console.log('[INFO] Generating summary with Gemini CLI...');
-    console.log('[INFO] This may take a few minutes...\n');
+    console.log("[INFO] Generating summary with Gemini CLI...");
+    console.log("[INFO] This may take a few minutes...\n");
 
     // Construct the full prompt with caption content
-    let fullPrompt = `${prompt}\n\n以下は字幕ファイルの内容です：\n\n${captionContent}`;
+    let fullPrompt = `${prompt}\n\n---\n以下は字幕ファイルの内容です。\n\n<caption>${captionContent}</caption>`;
 
     if (scrapboxMemo) {
-      fullPrompt += `\n\n以下はScrapboxページの「今回のメモ」セクションの内容です。勉強会中に書かれたコード例やメモが含まれています：\n\n${scrapboxMemo}`;
+      fullPrompt += `\n\n---\n以下はScrapboxページの「今回のメモ」セクションの内容です。勉強会中に書かれたコード例やメモが含まれています。\n\n<scrapboxMemo>${scrapboxMemo}</scrapboxMemo>`;
     }
 
     try {
@@ -61,22 +65,24 @@ export class GeminiClient {
       );
 
       if (stderr) {
-        console.warn('[WARN] Gemini CLI stderr:', stderr);
+        console.warn("[WARN] Gemini CLI stderr:", stderr);
       }
 
       if (!stdout.trim()) {
-        throw new Error('Gemini CLI returned empty output');
+        throw new Error("Gemini CLI returned empty output");
       }
 
       return stdout.trim();
     } catch (error: any) {
-      if (error.code === 'ETIMEDOUT') {
+      if (error.code === "ETIMEDOUT") {
         throw new Error(
           `Gemini CLI timed out after ${GEMINI_TIMEOUT_MS / 1000} seconds.\n` +
-          'The caption file may be too large or the API may be slow.'
+            "The caption file may be too large or the API may be slow."
         );
       } else if (error.code) {
-        throw new Error(`Gemini CLI execution failed (exit code ${error.code}):\n${error.message}`);
+        throw new Error(
+          `Gemini CLI execution failed (exit code ${error.code}):\n${error.message}`
+        );
       } else {
         throw new Error(`Gemini CLI error: ${error.message}`);
       }

@@ -1,28 +1,30 @@
-import { GeminiClient } from './lib/gemini-client.ts';
-import { ScrapboxClient } from './lib/scrapbox-client.ts';
-import { parseEventNumberArg } from './lib/arg-parser.ts';
-import { updateSummariesIndex } from './lib/summaries-index-updater.ts';
-import { join } from 'node:path';
-import { existsSync } from 'node:fs';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { GeminiClient } from "./lib/gemini-client.ts";
+import { ScrapboxClient } from "./lib/scrapbox-client.ts";
+import { parseEventNumberArg } from "./lib/arg-parser.ts";
+import { updateSummariesIndex } from "./lib/summaries-index-updater.ts";
+import { join } from "node:path";
+import { existsSync } from "node:fs";
+import { mkdir, writeFile } from "node:fs/promises";
 
-const CAPTIONS_DIR = './tmp/captions';
-const SUMMARIES_DIR = './summaries';
-const GEMINI_PROMPT = `このECMAScript仕様輪読会全体の内容を、出来る限り省略無しで、詳しく説明してください。
-ただし、冒頭に行われる、自己紹介及び雑談の部分は飛ばしてください。
-書式はMarkdownで整え、必要に応じてコードブロックによる説明を示してください。`;
+const CAPTIONS_DIR = "./tmp/captions";
+const SUMMARIES_DIR = "./summaries";
+const GEMINI_PROMPT = `* このECMAScript仕様輪読会全体の内容を、出来る限り省略無しで、詳しく説明してください。
+* ただし、冒頭に行われる、自己紹介及び雑談の部分は飛ばしてください。
+* 書式はMarkdownで整え、なるべくコードブロックによる説明を含めてください。
+* なるべく仕様のアルゴリズムそのものは示さず、わかりやすい文章で説明してください。
+* 前置きは不要なので、いきなり輪読会タイトルの見出しから開始してください。`;
 
 async function main() {
   const event = parseEventNumberArg();
 
-  console.log('[INFO] Starting summary generation...\n');
+  console.log("[INFO] Starting summary generation...\n");
 
   // 1. Verify caption file exists
   const captionPath = join(CAPTIONS_DIR, `caption-${event}.txt`);
 
   if (!existsSync(captionPath)) {
     console.error(`[ERROR] Caption file not found: ${captionPath}`);
-    console.error('\nPlease download the caption first:');
+    console.error("\nPlease download the caption first:");
     console.error(`  pnpm run download-caption ${event}\n`);
     process.exit(1);
   }
@@ -36,13 +38,17 @@ async function main() {
     const memo = await scrapboxClient.fetchMemoContent(event);
     if (memo) {
       scrapboxMemo = memo;
-      console.log('[INFO] Scrapbox memo content found and will be included.\n');
+      console.log("[INFO] Scrapbox memo content found and will be included.\n");
     } else {
-      console.log('[INFO] No Scrapbox memo content found. Proceeding with captions only.\n');
+      console.log(
+        "[INFO] No Scrapbox memo content found. Proceeding with captions only.\n"
+      );
     }
   } catch (error) {
-    console.warn(`[WARN] Failed to fetch Scrapbox content: ${(error as Error).message}`);
-    console.warn('[WARN] Proceeding with captions only.\n');
+    console.warn(
+      `[WARN] Failed to fetch Scrapbox content: ${(error as Error).message}`
+    );
+    console.warn("[WARN] Proceeding with captions only.\n");
   }
 
   // 3. Initialize Gemini client
@@ -51,7 +57,11 @@ async function main() {
   // 4. Generate summary
   let summary;
   try {
-    summary = await geminiClient.generateSummary(captionPath, GEMINI_PROMPT, scrapboxMemo);
+    summary = await geminiClient.generateSummary(
+      captionPath,
+      GEMINI_PROMPT,
+      scrapboxMemo
+    );
   } catch (error) {
     console.error(`[ERROR] ${(error as Error).message}\n`);
     process.exit(1);
@@ -67,29 +77,31 @@ async function main() {
 
   if (existsSync(outputPath)) {
     console.log(`[WARN] File already exists: ${outputPath}`);
-    console.log('[WARN] Overwriting existing file...\n');
+    console.log("[WARN] Overwriting existing file...\n");
   }
 
   try {
-    await writeFile(outputPath, summary, 'utf-8');
+    await writeFile(outputPath, summary, "utf-8");
     console.log(`[SUCCESS] Summary generated for event #${event}`);
     console.log(`[INFO] Summary saved to: ${outputPath}\n`);
   } catch (error) {
-    console.error(`[ERROR] Failed to write summary file: ${(error as Error).message}\n`);
+    console.error(
+      `[ERROR] Failed to write summary file: ${(error as Error).message}\n`
+    );
     process.exit(1);
   }
 
   // 7. Update summaries index
-  console.log('[INFO] Updating summaries index...\n');
+  console.log("[INFO] Updating summaries index...\n");
   try {
     await updateSummariesIndex();
   } catch (error) {
-    console.warn('[WARN] Failed to update summaries index.\n');
+    console.warn("[WARN] Failed to update summaries index.\n");
     console.warn(`[WARN] ${(error as Error).message}\n`);
   }
 }
 
 main().catch((error) => {
-  console.error('[ERROR] Unexpected error:', error);
+  console.error("[ERROR] Unexpected error:", error);
   process.exit(1);
 });
