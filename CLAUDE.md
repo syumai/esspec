@@ -38,6 +38,11 @@ pnpm run download-caption 42
 pnpm run generate-summary <event_number>
 # Example:
 pnpm run generate-summary 42
+# Default: uses Codex CLI
+# To use Gemini CLI instead:
+pnpm run generate-summary 42 -- --gemini
+# Or:
+pnpm run generate-summary:gemini 42
 ```
 
 **Create YouTube Live broadcast:**
@@ -99,7 +104,13 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
 - Orchestrates complete broadcast setup workflow
 - Configuration: caption format (SRT), preferred language (Japanese), default category ID (28 - Science & Technology)
 
-**scripts/lib/gemini-client.ts**: Gemini AI integration
+**scripts/lib/codex-client.ts**: Codex CLI integration (default)
+- Uses Codex CLI (must be installed globally: `npm install -g @openai/codex`)
+- Generates summaries from caption files with optional Scrapbox memo content
+- Pipes prompt via stdin to `codex exec -s read-only -`
+- Configuration: 5-minute timeout
+
+**scripts/lib/gemini-client.ts**: Gemini AI integration (alternative, use `--gemini` flag)
 - Uses Gemini CLI (must be installed globally: `npm install -g @google/gemini-cli`)
 - Generates summaries from caption files with optional Scrapbox memo content
 - Configuration: 5-minute timeout, 10MB buffer for large outputs
@@ -141,6 +152,7 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
 
 **scripts/lib/arg-parser.ts**: Shared argument parser
 - Provides `parseEventNumberArg()` function for parsing event numbers from command-line arguments
+- Provides `parseSummaryArgs()` function for parsing event number and `--gemini` flag (used by generate-summary)
 - Used by all event-related scripts (create-event, download-caption, generate-summary, create-broadcast, generate-connpass-texts)
 - Accepts only positional arguments (e.g., `pnpm run create-event 42`)
 - Validates that event number is a positive integer
@@ -228,7 +240,8 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
 - Environment variables (for Connpass template generation):
   - `ESSPEC_ZOOM_URL`: Zoom meeting URL
   - `ESSPEC_DISCORD_URL`: Discord server URL
-- Gemini CLI installed globally: `npm install -g @google/gemini-cli`
+- Codex CLI installed globally (default for summary generation): `npm install -g @openai/codex`
+- Gemini CLI installed globally (alternative for summary generation): `npm install -g @google/gemini-cli`
 
 ## Important Notes
 

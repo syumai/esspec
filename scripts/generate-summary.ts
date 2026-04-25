@@ -1,6 +1,7 @@
+import { CodexClient } from "./lib/codex-client.ts";
 import { GeminiClient } from "./lib/gemini-client.ts";
 import { ScrapboxClient } from "./lib/scrapbox-client.ts";
-import { parseEventNumberArg } from "./lib/arg-parser.ts";
+import { parseSummaryArgs } from "./lib/arg-parser.ts";
 import { updateSummariesIndex } from "./lib/summaries-index-updater.ts";
 import { join } from "node:path";
 import { existsSync } from "node:fs";
@@ -8,14 +9,14 @@ import { mkdir, writeFile } from "node:fs/promises";
 
 const CAPTIONS_DIR = "./tmp/captions";
 const SUMMARIES_DIR = "./summaries";
-const GEMINI_PROMPT = `* このECMAScript仕様輪読会全体の内容を、出来る限り省略無しで、詳しく説明してください。
+const SUMMARY_PROMPT = `* このECMAScript仕様輪読会全体の内容を、出来る限り省略無しで、詳しく説明してください。
 * ただし、冒頭に行われる、自己紹介及び雑談の部分は飛ばしてください。
 * 書式はMarkdownで整え、なるべくコードブロックによる説明を含めてください。
 * なるべく仕様のアルゴリズムそのものは示さず、わかりやすい文章で説明してください。
 * 前置きは不要なので、いきなり輪読会タイトルの見出しから開始してください。`;
 
 async function main() {
-  const event = parseEventNumberArg();
+  const { event, useGemini } = parseSummaryArgs();
 
   console.log("[INFO] Starting summary generation...\n");
 
@@ -51,15 +52,18 @@ async function main() {
     console.warn("[WARN] Proceeding with captions only.\n");
   }
 
-  // 3. Initialize Gemini client
-  const geminiClient = new GeminiClient();
+  // 3. Initialize client
+  const client = useGemini ? new GeminiClient() : new CodexClient();
+  console.log(
+    `[INFO] Using ${useGemini ? "Gemini CLI (--gemini)" : "Codex CLI (default)"}\n`
+  );
 
   // 4. Generate summary
   let summary;
   try {
-    summary = await geminiClient.generateSummary(
+    summary = await client.generateSummary(
       captionPath,
-      GEMINI_PROMPT,
+      SUMMARY_PROMPT,
       scrapboxMemo
     );
   } catch (error) {

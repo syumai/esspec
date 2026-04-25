@@ -8,6 +8,7 @@
     "create-broadcast": "node --experimental-strip-types scripts/create-broadcast.ts",
     "download-caption": "node --experimental-strip-types scripts/download-caption.ts",
     "generate-summary": "node --experimental-strip-types scripts/generate-summary.ts",
+    "generate-summary:gemini": "node --experimental-strip-types scripts/generate-summary.ts --gemini",
     "generate-summaries-index": "node --experimental-strip-types scripts/generate-summaries-index.ts",
     "generate-connpass-text": "node --experimental-strip-types scripts/generate-connpass-text.ts",
     "setup-event": "sh -c 'pnpm run create-event \"$0\" && pnpm run create-broadcast \"$0\" && pnpm run generate-connpass-text \"$0\"'",
