@@ -1,337 +1,182 @@
-# ECMAScript 仕様輪読会 #101
+# ECMAScript仕様輪読会 第101回
 
-## 前回の振り返り
+## 今回読んだ範囲の全体像
 
-前回は `String.prototype` の各種メソッドを読んでいました。今回の冒頭では、その内容を軽く振り返ったうえで、今回読む `localeCompare` に入っています。
+今回は `String.prototype.localeCompare` を中心に読み、その流れで Unicode の正規等価性、ECMA-402 側の国際化仕様、そして `String.prototype.normalize` まで読みました。
 
-### `endsWith(searchString, endPosition)`
+前回読む予定として残っていた `localeCompare` を先に扱い、その後、本来は `matchAll` に進む予定でしたが、`localeCompare` の理解に Unicode 正規化が強く関わるため、順序を入れ替えて `normalize` を読みました。
 
-`endsWith` は、文字列が指定した文字列で終わっているかを調べるメソッドです。
+また、冒頭付近で現在の ECMAScript 仕様ドラフトについても少し確認しました。Temporal は Stage 4 には到達しているものの、ECMAScript 2026 には入らず、ECMAScript 2027 側の扱いになるらしい、という話が出ました。
 
-第2引数 `endPosition` がある場合、その位置までの部分文字列を対象にして「末尾が `searchString` か」を調べます。
+## ECMAScript 2026 / 2027 と Temporal
 
-```js
-"ABCDE".endsWith("BCD", 4); // true
-"ABCDE".endsWith("BCD", 5); // false
-```
+仕様ページを見たところ、ドラフト上では 2027 年版に関する表示が出ていました。
 
-`endPosition` は「ここから後ろを無視する」という意味に近いです。
+Temporal はすでに Stage 4 の Finished Proposal に入っているものの、今年出る ECMAScript 2026 には含まれないようだ、という話になりました。
 
-たとえば `"ABCDE"` に対して `endPosition` が `4` の場合、対象は `"ABCD"` になります。その末尾は `"BCD"` なので `true` になります。
+理由としては、Stage 4 になった時期がかなりギリギリで、しかも Temporal は仕様サイズが大きいため、2026 年版には間に合わなかったのではないか、という見方でした。
 
-一方、`endPosition` が `5` の場合は対象が `"ABCDE"` になり、末尾は `"CDE"` なので `"BCD"` ではありません。
+一方で ECMAScript 2026 には、すでに輪読会で触れた機能もいくつか入っていそうだという話も出ました。
 
-この第2引数は直感的にかなり難しいという話になりました。単に `slice` で部分文字列を取ってから判定した方が、読む側にはわかりやすいのではないか、という感想も出ていました。
+例としては次のようなものです。
 
 ```js
-const s = "ABCDE";
-
-s.slice(0, 4).endsWith("BCD"); // true
+Error.isError(value)
 ```
 
-### `endsWith` と正規表現
+これは、対象が Error オブジェクトかどうかを内部スロットで判定する機能として以前話題にしたものです。
 
-`endsWith` に正規表現を渡すと `TypeError` になります。
-
-```js
-"abc".endsWith(/c/);
-// TypeError
-```
-
-これは `includes` や `startsWith` など比較的新しい文字列メソッドにも見られる挙動です。
-
-ただし、単に `RegExp` インスタンスかどうかだけではなく、仕様上は `IsRegExp` によって判定されます。`Symbol.match` を持っている値は、正規表現的なものとして扱われます。
-
-```js
-const matcherLike = {
-  [Symbol.match]: true
-};
-
-"abc".endsWith(matcherLike);
-// TypeError
-```
-
-これは、将来的に正規表現を受け取るような拡張を可能にするため、今の段階では正規表現っぽいものを明示的に拒否している、という整理でした。
-
-### `includes(searchString, position)`
-
-`includes` は、文字列の中に指定した文字列が含まれるかを調べます。
-
-第2引数 `position` は検索開始位置です。
-
-```js
-"ABCDE".includes("BCD");    // true
-"ABCDE".includes("BCD", 0); // true
-"ABCDE".includes("BCD", 1); // true
-"ABCDE".includes("BCD", 2); // false
-```
-
-`position` が `2` の場合、対象は `"CDE"` 以降になるため、`"BCD"` は見つかりません。
-
-`includes` も `endsWith` と同様に、正規表現を渡すと `TypeError` になります。
-
-```js
-"abc".includes(/b/);
-// TypeError
-```
-
-### `includes` は generic method
-
-`includes` は generic method です。
-
-つまり、必ずしも本物の文字列オブジェクトに対してだけ使えるわけではなく、`this` に来た値を文字列化して処理できます。
-
-```js
-const obj = {
-  toString() {
-    return "hello includes";
-  }
-};
-
-console.log(String.prototype.includes.call(obj, "includes"));
-// true
-```
-
-仕様上は、まず `this` に対して `RequireObjectCoercible` を行い、そのあと `ToString` してから検索します。
-
-そのため、`null` や `undefined` を `this` にすると失敗します。
-
-```js
-String.prototype.includes.call(null, "x");
-// TypeError
-```
-
-### `indexOf(searchString, position)`
-
-`indexOf` は、指定した文字列が最初に現れる位置を返します。見つからない場合は `-1` を返します。
-
-```js
-"ABCDE".indexOf("BCD"); // 1
-"ABCDE".indexOf("XYZ"); // -1
-```
-
-`indexOf` は古いメソッドなので、正規表現を渡しても `TypeError` にはなりません。
-
-```js
-"abc/./def".indexOf(/./); // 3
-```
-
-これは正規表現としてマッチしているのではなく、`/./` が文字列 `"/./"` に変換されて、その文字列を探しているだけです。
-
-```js
-String(/./); // "/./"
-```
-
-そのため、正規表現を渡せてしまうけれど、正規表現検索にはならないという紛らわしさがあります。
-
-比較的新しい `includes` や `endsWith` では、このような誤解を避けるために正規表現を拒否している、という整理でした。
-
-### `isWellFormed`
-
-`String.prototype.isWellFormed` は、文字列が well-formed Unicode string かどうかを返します。
-
-特に、サロゲートペアの片割れだけがあるような文字列を検出できます。
-
-```js
-"\uD800".isWellFormed(); // false
-"abc".isWellFormed();    // true
-"😀".isWellFormed();     // true
-```
-
-JavaScript の文字列は UTF-16 のコードユニット列なので、仕様上は壊れたサロゲートペアを含む文字列も作れてしまいます。`isWellFormed` はそれをチェックするためのメソッドです。
-
-### `lastIndexOf(searchString, position)`
-
-`lastIndexOf` は、指定した文字列が最後に現れる位置を返します。
-
-```js
-"ABCABC".lastIndexOf("ABC"); // 3
-```
-
-第2引数 `position` は非常にわかりにくい、という話になりました。
-
-`lastIndexOf` は後ろから検索しますが、`position` は「この位置より後ろは検索しない」という上限のように働きます。
-
-ただし、単純にその位置から文字を比較するというより、検索文字列の長さも考慮した候補位置を後ろから見ていくため、直感的に理解しづらいです。
-
-たとえば検索対象が `"ABCDABCD"`、検索文字列が `"BCD"` の場合、`"BCD"` が始まる候補位置を後ろから見ていきます。
-
-```js
-"ABCDABCD".lastIndexOf("BCD");    // 5
-"ABCDABCD".lastIndexOf("BCD", 5); // 5
-"ABCDABCD".lastIndexOf("BCD", 4); // 1
-```
-
-このあたりは、輪読中でも一度混乱しながら仕様を読み直していました。
-
-`lastIndexOf` も古いメソッドなので、正規表現を渡しても `TypeError` にはなりません。`indexOf` と同様、正規表現は文字列化されます。
-
-### `match`
-
-`String.prototype.match` は、正規表現とのマッチ結果を返します。
-
-ただし、必ずしも `RegExp` だけを受け取るわけではありません。引数に `Symbol.match` メソッドがあれば、それを呼びます。
-
-```js
-const matcher = {
-  [Symbol.match](value) {
-    return {
-      input: value,
-      custom: true
-    };
-  }
-};
-
-console.log("abc".match(matcher));
-// { input: "abc", custom: true }
-```
-
-`Symbol.match` が返す値は、配列である必要すらありません。任意の値を返せます。
-
-一方、`Symbol.match` がなければ、引数から `RegExp` を作って通常の正規表現マッチを行います。
-
-### `Call` と `Invoke`
-
-仕様内では、関数呼び出しを表す抽象操作として `Call` や `Invoke` が出てきます。
-
-`Call` は、関数オブジェクトを指定した `this` 値で直接呼ぶイメージです。
-
-```js
-fn.call(thisValue, arg1, arg2);
-```
-
-`Invoke` は、あるオブジェクトの指定プロパティをメソッドとして呼ぶイメージです。
-
-```js
-obj[methodName](arg1, arg2);
-```
-
-どちらも、最終的には「関数を呼ぶ」処理ですが、`this` が何になるか、どこから関数を取り出すかが違います。
-
-### `IsRegExp` と `Symbol.match`
-
-`IsRegExp` は、値が正規表現として扱われるべきかを判定する抽象操作です。
-
-ざっくり言うと、`Symbol.match` プロパティがあれば、その真偽値を見ます。
-
-```js
-const x = {
-  [Symbol.match]: true
-};
-
-const y = {
-  [Symbol.match]: false
-};
-```
-
-`x` は正規表現的なものとして扱われます。`y` は `Symbol.match` を持っていても、値が falsy なので正規表現扱いされません。
-
-## ECMAScript 2026 / 2027 と Temporal の話
-
-今回、仕様ページを見ている途中で、Temporal が ECMAScript 2026 ではなく ECMAScript 2027 扱いになっていることに気づきました。
-
-Temporal は Stage 4 にはなっているものの、2026 年版には入らず、2027 年版に回ったようです。
-
-ECMAScript の年次仕様は毎年 6 月ごろに確定します。Temporal は大きな機能で、Stage 4 になったタイミングもぎりぎりだったため、2026 年版には間に合わなかったのではないか、という話になりました。
-
-一方で、2026 年版には以下のような提案が入る見込みとして話題に出ていました。
-
-- `await using`
-- `Iterator` helpers
-- `Iterator.from`
-- `Error.isError`
-- `Uint8Array` / typed array 関連の機能
-
-`Error.isError` は、内部スロットを見て本物の Error オブジェクトかどうかを判定する、比較的わかりやすい機能として以前にも話題にしていたようです。
+その他にも Iterator 関連や Array 関連など、今後読むのが楽しみな機能がある、という確認がありました。
 
 ## `String.prototype.localeCompare`
 
-今回の中心は `String.prototype.localeCompare` です。
+今回の主題は `String.prototype.localeCompare` でした。
+
+ECMAScript 本体、つまり ECMA-262 側にも `localeCompare` の記述はありますが、実際には国際化 API である ECMA-402 を含む実装では、ECMA-402 側の仕様に従って実装することになっています。
+
+つまり、ECMA-262 側に書かれている内容は、ECMA-402 を持たない実装向けのフォールバック仕様に近いものです。
+
+仕様上はおおよそ次のような位置づけです。
 
 ```js
-str.localeCompare(that)
-str.localeCompare(that, locales)
-str.localeCompare(that, locales, options)
+"abc".localeCompare("abd")
 ```
 
-ECMAScript 本体仕様では、`localeCompare` について最低限のフォールバック仕様が書かれています。
+このメソッドは、現在のロケールに基づいて、レシーバー文字列と引数文字列の順序を比較します。
 
-ただし、ECMA-402、つまり Internationalization API を実装している環境では、ECMA-402 側の仕様に従って実装しなければなりません。
+戻り値は数値です。
 
-現実の JavaScript エンジンでは、通常 ECMA-402 があるため、実際の挙動は ECMA-402 の `Intl.Collator` にかなり依存します。
+```js
+"abc".localeCompare("abd"); // 負の値
+"abc".localeCompare("abc"); // 0
+"abc".localeCompare("abb"); // 正の値
+```
 
-### ECMA-402 がない場合の位置づけ
-
-ECMAScript 本体仕様には、ECMA-402 がない実装向けの説明があります。
-
-そこでは、`localeCompare` は次のような値を返すとされています。
-
-- 比較対象が `this` より前に並ぶなら正の値
-- 比較対象が `this` より後に並ぶなら負の値
-- 相対的な順序がない、または同等なら `0`
-
-ただし、実際に返る数値は `-1`、`0`、`1` に限るとは規定されていません。
+ただし、戻り値が必ず `-1`, `0`, `1` になるとは仕様上保証されていません。
 
 重要なのは符号です。
-
-```js
-console.log("abc".localeCompare("aba")); // positive
-console.log("abc".localeCompare("abb")); // positive
-console.log("abc".localeCompare("abc")); // 0
-console.log("abc".localeCompare("abd")); // negative
-console.log("abc".localeCompare("abe")); // negative
-```
-
-多くの実装では `-1`、`0`、`1` が返りますが、仕様上は「負・ゼロ・正」の意味だけを使うべきです。
 
 ```js
 const result = a.localeCompare(b);
 
 if (result < 0) {
-  // a は b より前
-} else if (result > 0) {
-  // a は b より後
-} else {
-  // 同等
+  // a は b より前に並ぶ
+}
+
+if (result > 0) {
+  // a は b より後に並ぶ
+}
+
+if (result === 0) {
+  // 並び順上は同等
 }
 ```
 
-### `localeCompare` の引数処理
+実装は追加情報を戻り値にエンコードしてもよいため、負の値・正の値・ゼロという関係だけを見るべき、という話でした。
 
-`localeCompare` は generic method です。
+## `localeCompare` の基本的な処理
 
-まず `this` に対して `RequireObjectCoercible` を行います。そのため、`null` や `undefined` を `this` にすると `TypeError` になります。
+ECMA-262 側の仕様では、まずレシーバーが `null` や `undefined` でないことを確認します。
+
+これは他の多くの `String.prototype` メソッドと同じです。
 
 ```js
-try {
-  String.prototype.localeCompare.call(null);
-} catch (err) {
-  console.error(err);
+String.prototype.localeCompare.call(null, "x");
+// TypeError
+
+String.prototype.localeCompare.call(undefined, "x");
+// TypeError
+```
+
+その後、レシーバーと比較対象の値を文字列に変換します。
+
+つまり、`localeCompare` は文字列専用に見えますが、内部的には `ToString` されるため、比較対象には文字列以外も渡せます。
+
+```js
+"123".localeCompare(123);
+// "123" と "123" の比較になる
+```
+
+ただし、レシーバー側については `null` / `undefined` は拒否されます。
+
+```js
+String.prototype.localeCompare.call(123, "124");
+// 123 が "123" に変換されて比較される
+```
+
+この意味で、`localeCompare` も他の多くの `String.prototype` メソッドと同じく generic なメソッドです。
+
+## 第2引数・第3引数
+
+`localeCompare` にはオプショナルな第2引数と第3引数があります。
+
+```js
+str.localeCompare(that, locales, options)
+```
+
+ECMA-262 側では、これらの引数について具体的な意味を定義しません。
+
+それらは ECMA-402 側で定義されます。
+
+そのため、ECMA-402 を含まない実装は、第2引数・第3引数に勝手な別の意味を与えてはいけない、という制約があります。
+
+これは、将来または別仕様で定義される意味と衝突しないようにするためです。
+
+```js
+"a".localeCompare("b", "ja", {
+  numeric: true,
+});
+```
+
+このような `locales` や `options` の意味は ECMA-402 側の責務です。
+
+## `localeCompare` は全順序を定義する比較である必要がある
+
+仕様には、`localeCompare` は文字列全体に対して一貫した比較を定義する必要がある、という趣旨の記述があります。
+
+ここで話題になったのが「全順序」です。
+
+全順序とは、任意の2つの要素について必ず順序関係を決められるような順序です。
+
+数値は典型的な全順序です。
+
+```txt
+1 < 2 < 3 < 4
+```
+
+どの2つを選んでも、どちらが前か、または等しいかを決められます。
+
+一方、クラス継承関係のようなものは半順序の例として説明されました。
+
+```txt
+Object
+├── String
+└── Number
+```
+
+`String` は `Object` の子であり、`Number` も `Object` の子です。
+
+しかし、`String` と `Number` の間に「どちらが上か」という直接の順序はありません。
+
+このように、比較できない組が存在するものは全順序ではありません。
+
+`localeCompare` はソートに使われる可能性があるため、同じ入力に対して呼ぶたびに違う結果を返すような、非決定的な比較であってはいけません。
+
+例えば次のような比較関数は不適切です。
+
+```js
+function badCompare(a, b) {
+  return Math.random() - 0.5;
 }
 ```
 
-出力例:
+`localeCompare` は、ロケール依存ではあっても、一貫した比較である必要があります。
 
-```text
-TypeError: String.prototype.localeCompare called on null or undefined
-```
+## `Array.prototype.sort` にそのまま渡してはいけない
 
-その後、`this` と比較対象の値をどちらも文字列に変換します。
+仕様には、`String.prototype.localeCompare` 自体は `Array.prototype.sort` の比較関数として直接渡すのに適していない、という注意もあります。
 
-```js
-String.prototype.localeCompare.call(123, 45);
-// "123".localeCompare("45") と同じような扱い
-```
-
-第2引数と第3引数は、ECMA-402 では `locales` と `options` として定義されます。
-
-一方、ECMA-402 を持たない実装は、この第2引数・第3引数に別の意味を勝手に与えてはいけない、とされています。
-
-これは、ECMA-402 との互換性を壊さないためです。
-
-### `localeCompare` は `Array.prototype.sort` にそのまま渡せない
-
-`Array.prototype.sort` の比較関数は、2つの引数を受け取ります。
+`sort` の比較関数は、2つの引数を受け取る関数を期待します。
 
 ```js
 array.sort((a, b) => {
@@ -339,78 +184,185 @@ array.sort((a, b) => {
 });
 ```
 
-一方、`localeCompare` は `this` と第1引数を比較するメソッドです。
+一方、`localeCompare` は「レシーバー文字列」と「引数文字列」を比較するメソッドです。
 
-そのため、以下のように直接渡すのは適切ではありません。
-
-```js
-array.sort(String.prototype.localeCompare); // よくない
-```
-
-`sort` から呼ばれるとき、`this` が意図した文字列にならないためです。
-
-正しくは、比較関数の中で明示的に呼びます。
+つまり、次のように直接渡すのは意図通りではありません。
 
 ```js
-const items = ["réservé", "Premier", "Cliché", "communiqué", "café", "Adieu"];
-
-console.log(
-  items.toSorted((a, b) => a.localeCompare(b, "fr"))
-);
+array.sort(String.prototype.localeCompare);
 ```
 
-### consistent comparator と total ordering
-
-仕様では、`localeCompare` は2引数のメソッドとして見たとき、文字列全体に対して consistent comparator でなければならない、とされています。
-
-輪読ではここで「全順序」と「半順序」の話になりました。
-
-全順序とは、任意の2つの値を必ず比較できる順序です。
-
-数値は典型的な全順序です。
-
-```text
-1 < 2 < 3
-```
-
-どの2つを選んでも、どちらが前か後か、または同じかを決められます。
-
-一方、クラスの継承関係のようなものは半順序の例として説明されました。
-
-```text
-Object
-├── String
-└── Number
-```
-
-`String` は `Object` の子であり、`Number` も `Object` の子です。しかし、`String` と `Number` の間には「どちらが親か」という関係はありません。
-
-つまり、比較できる組み合わせと比較できない組み合わせがあります。これが半順序です。
-
-`localeCompare` は文字列を並べ替えるために使える必要があるので、全ての文字列同士に対して一貫した比較結果を返さなければなりません。
-
-また、consistent comparator なので、同じ入力に対して呼ぶたびに違う結果を返すようなことは許されません。
+正しくは、明示的に2引数の比較関数で包む必要があります。
 
 ```js
-// よくない比較関数の例
-function randomCompare(a, b) {
-  return Math.random() - 0.5;
-}
+const items = ["c", "a", "b"];
+
+items.sort((a, b) => a.localeCompare(b));
+
+console.log(items);
+// ["a", "b", "c"]
 ```
 
-`localeCompare` はロケール依存ではあるものの、同じ条件で同じ文字列を比較したら、一貫した結果を返す必要があります。
+## ロケールに応じた比較
 
-## canonical equivalence
+`localeCompare` は、ホスト環境の現在のロケールや、指定されたロケールに応じた比較を行うことを意図しています。
 
-`localeCompare` の仕様で重要なのが canonical equivalence、正規等価性です。
+例えば、同じ文字でも言語・地域によって並び順が変わります。
 
-仕様では、`localeCompare` は Unicode Standard に従った canonical equivalence を認識しなければならない、とされています。
+輪読会では `ä` と `z` の比較が例に出ました。
 
-つまり、Unicode 的に正規等価な文字列は、比較結果として `0` を返す必要があります。
+```js
+const a = "ä";
+const b = "z";
 
-### 見た目やコードポイントが違っても同じ扱いになる例
+// ドイツ語では ä は a のバリエーションとして扱われ、z より前
+console.log(a.localeCompare(b, "de"));
+// 負の値
 
-以下のような比較は `0` を返します。
+// スウェーデン語では ä はアルファベットの後半に位置し、z より後
+console.log(a.localeCompare(b, "sv"));
+// 正の値
+```
+
+同じ文字でも、ドイツ語とスウェーデン語では順序が異なります。
+
+これが `localeCompare` の本質的な難しさです。
+
+## language と locale の違い
+
+途中で、language と locale の違いも確認しました。
+
+language は言語そのものを指します。
+
+```txt
+en = 英語
+ja = 日本語
+de = ドイツ語
+```
+
+一方、locale は言語だけでなく、地域・文化的慣習・通貨・日付形式・数値形式などを含む設定です。
+
+```txt
+en-US = アメリカ英語
+en-GB = イギリス英語
+ja-JP = 日本語 / 日本
+```
+
+例えば、同じ英語でもアメリカとイギリスでは日付表記が異なります。
+
+```txt
+en-US: 05/25/2026
+en-GB: 25/05/2026
+```
+
+`localeCompare` は「言語」だけでなく「ロケール」に基づく比較を扱います。
+
+## ECMA-402 側の `localeCompare`
+
+ECMA-402 側の仕様も軽く確認しました。
+
+ECMA-402 では、`String.prototype.localeCompare` は内部的に `Intl.Collator` を使う形になっています。
+
+概念的には次のような流れです。
+
+```js
+const collator = new Intl.Collator(locales, options);
+const result = collator.compare(S, that);
+```
+
+実際の仕様では `CompareStrings` という抽象操作が出てきます。
+
+`Collator` は、ロケールに応じた文字列の照合・比較を担当するオブジェクトです。
+
+```js
+const collator = new Intl.Collator("sv");
+
+console.log(collator.compare("ä", "z"));
+// スウェーデン語の順序で比較される
+```
+
+`localeCompare` の第2引数・第3引数は、最終的にこの `Intl.Collator` の構築に使われます。
+
+## `numeric` オプション
+
+ECMA-402 の `options` には `numeric` というオプションがあります。
+
+これは、数字列を数値として比較するかどうかに関わります。
+
+```js
+const items = ["2", "10", "1"];
+
+console.log(items.toSorted((a, b) =>
+  a.localeCompare(b, "en", { numeric: false })
+));
+// ["1", "10", "2"]
+
+console.log(items.toSorted((a, b) =>
+  a.localeCompare(b, "en", { numeric: true })
+));
+// ["1", "2", "10"]
+```
+
+`numeric: false` では文字列として比較されるため、`"10"` が `"2"` より前に来ます。
+
+`numeric: true` では数値的に比較されるため、`"2"` が `"10"` より前に来ます。
+
+輪読会では日本語の漢数字も試しました。
+
+```js
+const nums = ["一", "四十五", "三", "100", "3", "百", "二"];
+
+console.log(nums.toSorted((a, b) =>
+  a.localeCompare(b, "ja", { numeric: true })
+));
+
+console.log(nums.toSorted((a, b) =>
+  a.localeCompare(b, "ja", { numeric: false })
+));
+```
+
+結果は次のようになりました。
+
+```txt
+3,100,一,三,四十五,二,百
+100,3,一,三,四十五,二,百
+```
+
+`numeric: true` は、少なくとも通常の ASCII 数字列には効きます。
+
+しかし、漢数字の `"四十五"` や `"百"` を数値として解釈するわけではありませんでした。
+
+## Unicode の正規等価性
+
+`localeCompare` で重要なのが、Unicode の正規等価性です。
+
+仕様では、実装は Unicode Standard に基づく canonical equivalence を認識しなければならない、とされています。
+
+日本語では「正規等価性」などと訳されます。
+
+これは、見た目や意味として同じ文字を、異なる Unicode コードポイント列で表せる場合がある、という問題に関係します。
+
+例えば、次の2つは見た目としては同じような文字です。
+
+```js
+"\u212B"   // Å ANGSTROM SIGN
+"A\u030A" // A + COMBINING RING ABOVE
+```
+
+前者は 1 つのコードポイントで表された `Å` です。
+
+後者は `A` に「上に丸を付ける結合文字」を組み合わせています。
+
+`localeCompare` は、これらを正規等価なものとして扱い、比較結果として `0` を返す必要があります。
+
+```js
+console.log("\u212B".localeCompare("A\u030A"));
+// 0
+```
+
+## 正規等価な文字列の例
+
+輪読会では、仕様に載っている例を実際に試しました。
 
 ```js
 {
@@ -423,10 +375,11 @@ function randomCompare(a, b) {
   console.log("\u2126".localeCompare("\u03A9"));
 
   // ṩ LATIN SMALL LETTER S WITH DOT BELOW AND DOT ABOVE vs.
-  // s + COMBINING DOT ABOVE + COMBINING DOT BELOW
+  // ṩ LATIN SMALL LETTER S + COMBINING DOT ABOVE + COMBINING DOT BELOW
   console.log("\u1E69".localeCompare("s\u0307\u0323"));
 
-  // ḍ̇ vs. ḍ̇
+  // ḍ̇ LATIN SMALL LETTER D WITH DOT ABOVE + COMBINING DOT BELOW vs.
+  // ḍ̇ LATIN SMALL LETTER D WITH DOT BELOW + COMBINING DOT ABOVE
   console.log("\u1E0B\u0323".localeCompare("\u1E0D\u0307"));
 
   // 가 HANGUL CHOSEONG KIYEOK + HANGUL JUNGSEONG A vs.
@@ -437,9 +390,9 @@ function randomCompare(a, b) {
 }
 ```
 
-出力:
+実行結果は次の通りです。
 
-```text
+```txt
 0
 0
 0
@@ -448,313 +401,155 @@ function randomCompare(a, b) {
 -1
 ```
 
-最初の5つは正規等価なので `0` です。
+最初の5つは `0` になっています。
 
-最後の `"㌀"` と `"アパート"` は見た目・意味として近いですが、canonical equivalence ではありません。これは compatibility equivalence 側の話になります。
+つまり、コードポイント列としては異なっていても、Unicode の正規等価性により同等と扱われます。
 
-### canonical equivalence と compatibility equivalence
-
-Unicode には、canonical equivalence と compatibility equivalence があります。
-
-canonical equivalence は、Unicode 的に本質的に同じ文字列と見なせるものです。
-
-たとえば、以下は同じ文字を表す別表現です。
-
-```js
-"\u212B"   // Å ANGSTROM SIGN
-"A\u030A" // A + COMBINING RING ABOVE
-```
-
-一方、compatibility equivalence は、互換性上は対応するが、完全に同じ文字として扱うとは限らないものです。
-
-たとえば、`㌀` は「アパート」を1文字にした互換文字です。
-
-```js
-"㌀".normalize("NFKC"); // "アパート"
-```
-
-しかし、`localeCompare` の仕様では、Unicode の compatibility equivalence や compatibility composition は尊重しないことが推奨されています。
-
-つまり、`"㌀"` と `"アパート"` を同じと扱わない方がよい、ということです。
-
-実際の結果も `0` ではありませんでした。
+一方で、`"㌀"` と `"アパート"` は `localeCompare` では `0` になりませんでした。
 
 ```js
 console.log("㌀".localeCompare("アパート"));
 // -1
 ```
 
-### “honour canonical equivalence” の意味
+これは、`㌀` と `アパート` が canonical equivalence ではなく、compatibility equivalence 側の関係だからです。
 
-仕様中に出てくる `honour canonical equivalence` の `honour` は、ここでは「尊重する」「従う」「準拠する」くらいの意味です。
+## canonical equivalence と compatibility equivalence
 
-つまり、Unicode Standard の canonical equivalence の定義に従って、正規等価な文字列は同等として扱う、という意味になります。
+Unicode には、少なくとも次の2種類の等価性があります。
 
-## language と locale
-
-途中で、language と locale の違いも話題になりました。
-
-language は言語そのものを表します。
-
-```text
-en = English
-ja = Japanese
-fr = French
+```txt
+canonical equivalence
+compatibility equivalence
 ```
 
-locale は、言語に加えて地域や文化的な慣習も含みます。
+canonical equivalence は、文字として本質的に同じとみなせるような等価性です。
 
-```text
-en-US = アメリカ英語
-en-GB = イギリス英語
-ja-JP = 日本語 / 日本
-```
-
-たとえば、同じ英語でも、アメリカとイギリスでは日付表記が異なります。
-
-```text
-en-US: 05/25/2026
-en-GB: 25/05/2026
-```
-
-`localeCompare` は名前の通り locale に基づく比較です。文字の並び順は、単なる言語だけでなく、地域や文化的な慣習にも影響されます。
-
-## ECMA-402 側の `localeCompare`
-
-ECMAScript 本体仕様の `localeCompare` は、ECMA-402 がある場合には ECMA-402 の仕様に従います。
-
-ECMA-402 側では、`localeCompare` は内部的に `Intl.Collator` を使う形になっています。
-
-ざっくり言うと、次のような流れです。
+例えば、合成済み文字と、基底文字 + 結合文字の組み合わせです。
 
 ```js
-const collator = new Intl.Collator(locales, options);
-const result = collator.compare(s, that);
+"\u00E9"   // é
+"e\u0301" // e + COMBINING ACUTE ACCENT
 ```
 
-実際の仕様では、`Construct(%Intl.Collator%, ...)` のような処理で collator を作り、それを使って文字列比較をします。
+これらは正規等価です。
 
-`Collator` は照合、つまり文字列をどの順序で並べるかを扱うものです。
+一方、compatibility equivalence は、互換性のために対応づけられている関係です。
+
+例えば、次のようなものが含まれます。
+
+```txt
+㌀  <=>  アパート
+全角・半角の違い
+リガチャ
+互換漢字
+```
+
+`localeCompare` の仕様では、canonical equivalence は尊重しなければならない一方、compatibility equivalence は尊重しないことが推奨されています。
+
+つまり、`"㌀"` と `"アパート"` を同じと扱う必要はありません。
 
 ```js
-const collator = new Intl.Collator("de");
-
-console.log(collator.compare("ä", "z"));
-// ドイツ語の照合規則に基づく比較
+console.log("㌀".localeCompare("アパート"));
+// 0 である必要はない
 ```
 
-## ロケールによる並び順の違い
+実際、今回の実行環境では `-1` でした。
 
-`localeCompare` は、ロケールによって結果が変わります。
+## “honour canonical equivalence” の意味
 
-特にわかりやすい例として、`ä` と `z` の順序があります。
+仕様には `honour canonical equivalence` という表現が出てきました。
 
-```js
-{
-  const a = "ä";
-  const b = "z";
+ここでの `honour` は「尊重する」「準拠する」「従う」という意味で使われています。
 
-  // ドイツ語では ä は a のバリエーションなので z より前
-  console.log(a.localeCompare(b, "de"));
+つまり、`localeCompare` は Unicode Standard における canonical equivalence を尊重しなければならない、という意味です。
 
-  // スウェーデン語では ä はアルファベットの後半、z の後に位置する
-  console.log(a.localeCompare(b, "sv"));
-}
-```
+これは、単に見た目が同じなら同じと扱う、という曖昧な話ではなく、Unicode 側で定義された正規等価性に従う、という話です。
 
-出力:
+## ホスト環境の比較機能に依存してよいが、Unicode 正規等価性は守る必要がある
 
-```text
--1
-1
-```
+仕様では、`localeCompare` はホスト環境が提供する言語・ロケール依存の比較機能に依存してよい、とされています。
 
-ドイツ語では `ä < z` なので負の値です。
+例えば、OS や ICU などのライブラリを使って比較してもよい、ということです。
 
-スウェーデン語では `ä > z` なので正の値です。
+ただし、どの比較機能を使うとしても、Unicode Standard の canonical equivalence は守らなければなりません。
 
-同じ文字列でも、ロケールによって並び順が変わることが確認できました。
-
-### `z` と `ä` の比較
-
-メモでは以下も試しています。
-
-```js
-{
-  console.log("z".localeCompare("ä", "de"));
-  console.log("z".localeCompare("ä", "en"));
-  console.log("z".localeCompare("ä", "sv"));
-}
-```
-
-出力:
-
-```text
-1
-1
--1
-```
-
-ドイツ語や英語では `z` は `ä` より後ろ扱いですが、スウェーデン語では `ä` が `z` より後ろに来るため、結果が逆になります。
-
-## `ignorePunctuation` オプション
-
-ECMA-402 の `localeCompare` では、第3引数に options を渡せます。
-
-その一つに `ignorePunctuation` があります。
-
-```js
-const items = ["réservé", "Premier", "Cliché", "communiqué", "café", "Adieu"];
-
-console.log(
-  items.toSorted((a, b) =>
-    a.localeCompare(b, "fr", { ignorePunctuation: true })
-  )
-);
-
-console.log(
-  items.toSorted((a, b) =>
-    a.localeCompare(b, "fr")
-  )
-);
-```
-
-出力:
-
-```text
-Adieu,café,Cliché,communiqué,Premier,réservé
-Adieu,café,Cliché,communiqué,Premier,réservé
-```
-
-この例では `ignorePunctuation` を指定してもしなくても結果が同じでした。
-
-輪読中でも、このオプションの差が出る良い例を探していましたが、ここでは明確な差分までは確認していません。
-
-## `numeric` オプション
-
-`numeric` オプションを使うと、数字を数値として扱った照合ができます。
-
-```js
-["2", "10"].toSorted((a, b) =>
-  a.localeCompare(b, "en", { numeric: true })
-);
-// ["2", "10"]
-
-["2", "10"].toSorted((a, b) =>
-  a.localeCompare(b, "en", { numeric: false })
-);
-// ["10", "2"]
-```
-
-`numeric: false` では文字列として比較するため、`"10"` は `"2"` より前に来ます。
-
-`numeric: true` では数値的に比較されるため、`2` が `10` より前になります。
-
-輪読では、日本語の漢数字に対しても試していました。
-
-```js
-{
-  const nums = ["一", "四十五", "三", "100", "3", "百", "二"];
-
-  console.log(
-    nums.toSorted((a, b) =>
-      a.localeCompare(b, "ja", { numeric: true })
-    )
-  );
-
-  console.log(
-    nums.toSorted((a, b) =>
-      a.localeCompare(b, "ja", { numeric: false })
-    )
-  );
-}
-```
-
-出力:
-
-```text
-3,100,一,三,四十五,二,百
-100,3,一,三,四十五,二,百
-```
-
-`numeric: true` は半角数字の `"3"` と `"100"` には効いていますが、漢数字の `"一"`、`"二"`、`"三"`、`"四十五"`、`"百"` を数値として解釈しているわけではなさそうでした。
-
-つまり、`numeric` は任意の言語の数表現を全部数値化する機能ではなく、主に数字列を数値的に照合するためのものだと見てよさそうです。
-
-## ECMA-402 の奥深さ
-
-`localeCompare` を ECMA-402 側まで掘ると、`Intl.Collator` の照合オプションが大量に出てきます。
-
-たとえば、Unicode extension key のようなものがあり、照合規則の細かい指定に関わります。
-
-輪読中では、以下のような話題が出ました。
-
-- `kn` は numeric collation に関係しそう
-- `kh` はひらがな・カタカナの優先順位に関係するらしい
-- 日本語の照合だけでもかなり複雑
-- アラビア語など右から左に書く言語もあり、国際化仕様は非常に大変
-
-結論として、`localeCompare` 自体は小さなメソッドに見えますが、実際には Unicode、ロケール、照合規則、正規化、ECMA-402 などが絡む非常に深い領域だという話になりました。
+つまり、実装ごとにロケール比較の細部が違うことはあり得ますが、正規等価な文字列の比較結果が `0` になる、という部分は要求されます。
 
 ## `String.prototype.normalize`
 
-残り時間で、`matchAll` に進む代わりに、`localeCompare` と関連が深い `String.prototype.normalize` を読みました。
+`localeCompare` と Unicode 正規化の話になったため、次に `String.prototype.normalize` を読みました。
 
-`normalize` は、Unicode 正規化を行うメソッドです。
+`normalize` は、文字列を Unicode の正規化形式に変換するメソッドです。
 
 ```js
-str.normalize()
 str.normalize(form)
 ```
 
-`form` には以下の4つを指定できます。
+`form` には次の4種類を指定できます。
 
-```text
-"NFC"
-"NFD"
-"NFKC"
-"NFKD"
+```txt
+NFC
+NFD
+NFKC
+NFKD
 ```
 
-省略した場合は `"NFC"` になります。
+引数を省略した場合は `"NFC"` が使われます。
 
 ```js
-"文字列".normalize();
-// "文字列".normalize("NFC") と同じ
+"é".normalize();
+// "é".normalize("NFC") と同じ
 ```
 
-それ以外の値を指定すると `RangeError` になります。
+指定できない値を渡すと `RangeError` になります。
 
 ```js
 "abc".normalize("INVALID");
 // RangeError
 ```
 
-### `normalize` の仕様上の流れ
+## `normalize` の基本処理
 
-仕様上の処理は、ざっくり次のようなものです。
+仕様上の流れは次のようなものです。
 
-1. `this` を取得する
+1. レシーバーを取得する
 2. `RequireObjectCoercible` で `null` / `undefined` を拒否する
-3. `this` を文字列化する
-4. `form` が省略されていれば `"NFC"` にする
+3. レシーバーを文字列化する
+4. `form` が `undefined` なら `"NFC"` にする
 5. `form` が指定されていれば文字列化する
-6. `form` が `"NFC"`、`"NFD"`、`"NFKC"`、`"NFKD"` のいずれでもなければ `RangeError`
-7. Unicode Standard の指定に従って正規化する
-8. 正規化後の文字列を返す
+6. `form` が `"NFC"`, `"NFD"`, `"NFKC"`, `"NFKD"` のいずれでもなければ `RangeError`
+7. Unicode Standard に従って正規化した文字列を返す
 
-アルゴリズム自体は単純ですが、正規化形式の意味が難しいところです。
+コードでイメージすると次のような感じです。
+
+```js
+function normalizeLikeSpec(value, form) {
+  if (value == null) {
+    throw new TypeError();
+  }
+
+  const str = String(value);
+  const f = form === undefined ? "NFC" : String(form);
+
+  if (!["NFC", "NFD", "NFKC", "NFKD"].includes(f)) {
+    throw new RangeError();
+  }
+
+  // 実際の正規化処理は Unicode Standard に従う
+  return str.normalize(f);
+}
+```
 
 ## NFC / NFD / NFKC / NFKD
 
-輪読では、`NFC`、`NFD`、`NFKC`、`NFKD` の違いを実験しながら整理しました。
+今回の輪読会で特に理解が進んだのが、この4つの違いでした。
 
-大まかには以下のような関係です。
+大まかには次のように整理できます。
 
-```text
+```txt
 NFD  = canonical decomposition
 NFC  = canonical decomposition + canonical composition
-
 NFKD = compatibility decomposition
 NFKC = compatibility decomposition + canonical composition
 ```
@@ -763,11 +558,65 @@ NFKC = compatibility decomposition + canonical composition
 
 `C` は composition、つまり合成です。
 
-`K` が付くものは compatibility、つまり互換等価性まで考慮した分解です。
+`K` は compatibility、つまり互換性を考慮した正規化です。
 
-### `"㌀"` の正規化
+### NFD
 
-`㌀` は「アパート」を1文字にした互換文字です。
+NFD は canonical decomposition を行います。
+
+つまり、合成済み文字を、基底文字と結合文字に分解します。
+
+```js
+console.log("パ".normalize("NFD"));
+// パ
+```
+
+見た目は `パ` に見えますが、内部的には次のような構成になります。
+
+```txt
+ハ + COMBINING KATAKANA-HIRAGANA SEMI-VOICED SOUND MARK
+```
+
+### NFC
+
+NFC は、一度 canonical decomposition した上で、可能なものを canonical composition します。
+
+つまり、標準的な合成済み表現に寄せる形式です。
+
+```js
+console.log("パ".normalize("NFC"));
+// パ
+```
+
+### NFKD
+
+NFKD は compatibility decomposition を行います。
+
+互換文字も分解対象になります。
+
+例えば、`㌀` は「アパート」を表す互換文字です。
+
+```js
+console.log("㌀".normalize("NFKD"));
+// アパート
+```
+
+この結果は、`パ` がさらに `ハ + ゚` に分解された形になります。
+
+### NFKC
+
+NFKC は、compatibility decomposition をした上で canonical composition します。
+
+```js
+console.log("㌀".normalize("NFKC"));
+// アパート
+```
+
+`㌀` はまず互換分解されて `アパート` になり、その後 `ハ + ゚` が合成されて `パ` になります。
+
+## `㌀` と `アパート` の正規化
+
+輪読会では `㌀` を使って、4種類の正規化形式を比較しました。
 
 ```js
 {
@@ -778,32 +627,36 @@ NFKC = compatibility decomposition + canonical composition
 }
 ```
 
-出力:
+結果は次のようになりました。
 
-```text
+```txt
 ㌀
 アパート length 5
 ㌀
 アパート length 4
 ```
 
-`NFD` や `NFC` では、`㌀` はそのままです。
+`NFD` と `NFC` では `㌀` はそのままです。
 
-一方、`NFKD` や `NFKC` では `"アパート"` に分解されます。
+これは `㌀` が canonical decomposition の対象ではないからです。
 
-ただし、`NFKD` では `"パ"` が `"ハ"` + 結合半濁点に分解されているため、length が `5` になります。
+一方、`NFKD` と `NFKC` では互換分解が行われます。
 
-```text
-ア + ハ + ゚ + ー + ト
+```js
+"㌀".normalize("NFKD");
+// アパート
+
+"㌀".normalize("NFKC");
+// アパート
 ```
 
-`NFKC` では、互換分解したあとに canonical composition するため、`"パ"` が合成されて length が `4` になります。
+`NFKD` では `パ` が `ハ + ゚` に分解されたままなので、length が 5 になります。
 
-```text
-ア + パ + ー + ト
-```
+`NFKC` では `パ` に再合成されるため、length が 4 になります。
 
-### `"アパート"` の正規化
+## `アパート` の正規化
+
+通常の `アパート` でも正規化の違いを確認しました。
 
 ```js
 {
@@ -814,20 +667,24 @@ NFKC = compatibility decomposition + canonical composition
 }
 ```
 
-出力:
+結果は次のようになります。
 
-```text
+```txt
 アパート
 アパート
 アパート
 アパート
 ```
 
-`NFD` と `NFKD` では、`パ` が `ハ` + 結合半濁点に分解されます。
+`NFD` と `NFKD` では `パ` が分解されます。
 
-`NFC` と `NFKC` では、合成済みの `パ` になります。
+`NFC` と `NFKC` では合成済みの `パ` になります。
 
-### 半角カナ `"ｱﾊﾟｰﾄ"` の正規化
+この例では、もともと互換文字ではないため、`NFD` と `NFKD` の差は目立ちません。
+
+## 半角カナの正規化
+
+半角カナも試しました。
 
 ```js
 {
@@ -838,117 +695,133 @@ NFKC = compatibility decomposition + canonical composition
 }
 ```
 
-出力:
+結果は次の通りです。
 
-```text
+```txt
 ｱﾊﾟｰﾄ
 アパート
 ｱﾊﾟｰﾄ
 アパート
 ```
 
-`NFD` と `NFC` では、半角カナはそのままです。
+`NFD` と `NFC` では半角カナはそのままです。
 
-一方、`NFKD` と `NFKC` では、互換文字として全角カナに変換されます。
-
-`NFKD` は分解したままなので `"ハ" + 半濁点` になります。
-
-`NFKC` は合成まで行うので `"パ"` になります。
-
-### code point の確認
-
-メモでは、`NFKD` と `NFKC` の違いを code point でも確認していました。
+一方、`NFKD` と `NFKC` では互換分解が行われ、全角カナに変換されます。
 
 ```js
-{
-  console.log(String.fromCodePoint("㌀".normalize("NFKD").codePointAt(2)));
-  console.log(String.fromCodePoint("㌀".normalize("NFKC").codePointAt(2)));
-}
+"ｱﾊﾟｰﾄ".normalize("NFKD");
+// アパート
+
+"ｱﾊﾟｰﾄ".normalize("NFKC");
+// アパート
 ```
 
-出力:
+つまり、半角・全角のような互換文字の違いをならしたい場合は、`NFKC` や `NFKD` を使うことになります。
 
-```text
+## `NFKD` と `NFKC` の違い
+
+`NFKD` と `NFKC` の違いは、分解した後に再合成するかどうかです。
+
+```js
+console.log("㌀".normalize("NFKD"));
+// アパート
+
+console.log("㌀".normalize("NFKC"));
+// アパート
+```
+
+`NFKD` では `パ` が次の2つに分かれます。
+
+```txt
+ハ
 ゚
-ー
 ```
 
-`NFKD` の結果は以下です。
+一方、`NFKC` ではそれが再合成されます。
 
-```text
-ア ハ ゚ ー ト
+```txt
+パ
 ```
 
-index `2` は結合半濁点です。
-
-`NFKC` の結果は以下です。
-
-```text
-ア パ ー ト
-```
-
-index `2` は長音記号です。
-
-この実験によって、`NFKD` は互換分解だけ、`NFKC` は互換分解したあとに合成まで行う、という違いがかなり具体的に確認できました。
-
-## macOS のファイル名正規化の話
-
-最後に、macOS の HFS+ ではファイル名が独特な Unicode 正規化形式で扱われるという話も出ました。
-
-よく「NFD っぽい」と言われるものの、厳密には Unicode の標準的な NFD そのものではなく、少し特殊な形式です。
-
-そのため、macOS と他の環境でファイル名を扱うと、見た目は同じなのに内部表現が違う文字列になることがあります。
-
-たとえば、`パ` が1文字として入っている場合と、`ハ` + 結合半濁点として入っている場合です。
+実際にコードポイントを取り出して、分解後の3番目の要素が半濁点であることも確認しました。
 
 ```js
-"パ".length;      // 1
-"パ".length;     // 2
+console.log(String.fromCodePoint("㌀".normalize("NFKD").codePointAt(2)));
+// ゚
+
+console.log(String.fromCodePoint("㌀".normalize("NFKC").codePointAt(2)));
+// ー
 ```
 
-見た目は同じでも、JavaScript の文字列としては異なる可能性があります。
+`NFKD` では `アパート` なので、3番目付近に結合用の半濁点が出てきます。
 
-正規化は、このような差を吸収するために重要です。
+`NFKC` では `アパート` なので、その位置には長音記号 `ー` が来ます。
+
+## `localeCompare` と `normalize` の関係
+
+`localeCompare` は canonical equivalence を尊重する必要があります。
+
+そのため、次のような文字列は同等に比較されます。
 
 ```js
-"パ".normalize("NFD") === "パ".normalize("NFD");
-// true
-
-"パ".normalize("NFC") === "パ".normalize("NFC");
-// true
+console.log("\u212B".localeCompare("A\u030A"));
+// 0
 ```
 
-## 今回のまとめ
-
-今回の主題は `String.prototype.localeCompare` でした。
-
-`localeCompare` は単純な文字列比較メソッドに見えますが、実際には以下のような広い仕様領域に関わっています。
-
-- ECMA-402
-- `Intl.Collator`
-- locale
-- language
-- Unicode collation
-- canonical equivalence
-- compatibility equivalence
-- Unicode normalization
-- `String.prototype.normalize`
-
-特に重要だったのは、`localeCompare` が canonical equivalence を尊重しなければならない点です。
-
-つまり、Unicode 的に正規等価な文字列は `0` を返す必要があります。
-
-一方、compatibility equivalence まで同じ扱いすることは推奨されていません。
-
-その流れで `normalize` も読み、`NFC`、`NFD`、`NFKC`、`NFKD` の違いを実験しました。
+しかし、compatibility equivalence まで同等に扱うことは要求されません。
 
 ```js
-"㌀".normalize("NFD");  // "㌀"
-"㌀".normalize("NFKD"); // "アパート"
-"㌀".normalize("NFC");  // "㌀"
-"㌀".normalize("NFKC"); // "アパート"
+console.log("㌀".localeCompare("アパート"));
+// 0 になる必要はない
 ```
 
-`localeCompare` と `normalize` を通して、JavaScript の文字列処理は単なるコードポイント比較ではなく、Unicode と国際化仕様に深く依存していることが確認できました。
+もしアプリケーション側で互換文字も同一視したいなら、比較前に `normalize("NFKC")` するような処理が考えられます。
 
-次回は、今回後回しにした `String.prototype.matchAll` から読む予定です。
+```js
+const a = "㌀";
+const b = "アパート";
+
+console.log(a.localeCompare(b));
+// 実装やロケールに依存するが、今回の環境では -1
+
+console.log(a.normalize("NFKC").localeCompare(b.normalize("NFKC")));
+// 0
+```
+
+このように、`localeCompare` と `normalize` は別の役割を持ちます。
+
+`localeCompare` はロケールに基づく順序比較を行います。
+
+`normalize` は Unicode 文字列の表現を特定の正規化形式にそろえます。
+
+## 今回の重要ポイント
+
+`localeCompare` は、単純な辞書順比較ではありません。
+
+ロケール、言語、ホスト環境、ECMA-402、Unicode 正規等価性が関わる、かなり深いメソッドです。
+
+戻り値については、具体的な数値ではなく符号を見る必要があります。
+
+```js
+a.localeCompare(b) < 0
+a.localeCompare(b) === 0
+a.localeCompare(b) > 0
+```
+
+また、`sort` に使う場合は直接渡さず、比較関数で包む必要があります。
+
+```js
+items.sort((a, b) => a.localeCompare(b, "ja"));
+```
+
+Unicode には、見た目が同じでもコードポイント列が異なる文字列があります。
+
+`localeCompare` は canonical equivalence を尊重しますが、compatibility equivalence までは同一視しないことが推奨されています。
+
+互換文字までならしたい場合は、`normalize("NFKC")` のような正規化を明示的に使う必要があります。
+
+## 次回
+
+今回は `matchAll` に進む予定でしたが、`localeCompare` から `normalize` に流れたため、`matchAll` は次回に回りました。
+
+次回は `String.prototype.matchAll` から読み進める予定です。

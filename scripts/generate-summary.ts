@@ -10,7 +10,9 @@ import { mkdir, writeFile } from "node:fs/promises";
 const CAPTIONS_DIR = "./tmp/captions";
 const SUMMARIES_DIR = "./summaries";
 const SUMMARY_PROMPT = `* このECMAScript仕様輪読会全体の内容を、出来る限り省略無しで、詳しく説明してください。
-* ただし、冒頭に行われる、自己紹介及び雑談の部分は飛ばしてください。
+* ただし、以下の部分は飛ばしてください。
+  - 冒頭に行われる、自己紹介及び雑談の部分
+  - 前回の振り返りの部分
 * 書式はMarkdownで整え、なるべくコードブロックによる説明を含めてください。
 * なるべく仕様のアルゴリズムそのものは示さず、わかりやすい文章で説明してください。
 * 前置きは不要なので、いきなり輪読会タイトルの見出しから開始してください。`;
