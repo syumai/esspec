@@ -1,0 +1,7 @@
+eventNumber: 104
+eventName: ECMAScript 仕様輪読会 第104回
+eventDateTime: '2026-07-07T19:30:00+09:00'
+readingRange: 22.1.3.20 String.prototype.replaceAll から (searchはskip, RegExp.prototype[%Symbol.search%] は読めそうなら読む)
+connpassUrl: https://connpass.com/event/396862/
+youtubeUrl: https://www.youtube.com/live/AjfmwNwmqBE
+scrapboxUrl: https://scrapbox.io/esspec/ECMAScript%E4%BB%95%E6%A7%98%E8%BC%AA%E8%AA%AD%E4%BC%9A_%23104
