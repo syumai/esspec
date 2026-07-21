@@ -11,10 +11,22 @@ const MAX_BUFFER_BYTES = 10 * 1024 * 1024; // 10MB
 const LOGIN_HINT = 'cosense login https://scrapbox.io を実行してください';
 
 interface CosenseLine {
+  id: string;
   text: string;
 }
 
-interface ReadPageResult {
+export interface CosensePage {
+  id: string;
+  lines: CosenseLine[];
+}
+
+// Raw shape of `cosense readPage` JSON output. Scrapbox has "non-persistent" pages
+// (a page slot that exists only because something links to it or it was visited via
+// URL, but nobody has actually saved content to it yet): readPage still responds with
+// HTTP 200 for these, but `persistent` is false and `id`/`linesCount`/`commitId` are null.
+interface RawReadPageResult {
+  id: string | null;
+  persistent?: boolean;
   lines: CosenseLine[];
 }
 
@@ -24,21 +36,39 @@ interface SpawnResult {
   code: number | null;
 }
 
+type EditOp = { insertBefore: string; text: string } | { replace: string; text: string } | { delete: string };
+
 export class CosenseClient {
   /**
-   * Build the full Scrapbox page URL for a given title.
-   * `#` and spaces are percent-encoded via encodeURIComponent.
+   * Build the full Scrapbox page URL for a given title, for use in API calls
+   * (readPage / previewEdit). `#` and spaces are percent-encoded via
+   * encodeURIComponent — required because a raw `#` would otherwise be
+   * treated as a URL fragment and break the request.
    */
   private buildPageUrl(title: string): string {
     return `${PROJECT_URL}/${encodeURIComponent(title)}`;
   }
 
   /**
-   * Read a Scrapbox page's line texts via `cosense readPage`.
-   * Returns null if the page does not exist (HTTP 404).
+   * Build a human-readable Scrapbox page URL for console display only.
+   * Only spaces are replaced with `_` (Scrapbox's conventional display form,
+   * e.g. `ECMAScript仕様輪読会_#106`) — no percent-encoding is applied.
+   * Do not use this for API calls; use the internal `buildPageUrl` (via
+   * readPage/previewEdit/createPage/overwritePageBody) for those instead.
+   */
+  buildDisplayPageUrl(title: string): string {
+    return `${PROJECT_URL}/${title.replaceAll(' ', '_')}`;
+  }
+
+  /**
+   * Read a Scrapbox page (id + line texts) via `cosense readPage`.
+   * Returns null if the page does not exist (HTTP 404), or if it is a
+   * non-persistent page (`persistent: false`, `id: null` — a page slot that
+   * exists only via a link/URL visit but has no saved content, which readPage
+   * reports as HTTP 200) — both cases are treated as "no page to work with".
    * Throws on any other error.
    */
-  async readPageLines(title: string): Promise<string[] | null> {
+  async readPage(title: string): Promise<CosensePage | null> {
     const pageUrl = this.buildPageUrl(title);
 
     try {
@@ -47,8 +77,11 @@ export class CosenseClient {
         maxBuffer: MAX_BUFFER_BYTES,
       });
 
-      const result = JSON.parse(stdout) as ReadPageResult;
-      return result.lines.map((line) => line.text);
+      const result = JSON.parse(stdout) as RawReadPageResult;
+      if (result.persistent !== true || typeof result.id !== 'string') {
+        return null;
+      }
+      return { id: result.id, lines: result.lines };
     } catch (error) {
       const err = error as { stdout?: string; stderr?: string; message?: string };
       const combined = `${err.stdout ?? ''}${err.stderr ?? ''}`;
@@ -64,6 +97,19 @@ export class CosenseClient {
   }
 
   /**
+   * Read a Scrapbox page's line texts via `cosense readPage`.
+   * Returns null if the page does not exist (HTTP 404).
+   * Throws on any other error.
+   */
+  async readPageLines(title: string): Promise<string[] | null> {
+    const page = await this.readPage(title);
+    if (page === null) {
+      return null;
+    }
+    return page.lines.map((line) => line.text);
+  }
+
+  /**
    * Check whether a Scrapbox page with the given title exists.
    */
   async pageExists(title: string): Promise<boolean> {
@@ -76,15 +122,43 @@ export class CosenseClient {
    * Runs `previewEdit --new` followed by `submitEdit`.
    */
   async createPage(bodyText: string): Promise<{ title: string; url: string }> {
-    const previewId = await this.runPreviewEdit(bodyText);
+    const previewId = await this.runPreviewEdit(['--new', PROJECT_URL], bodyText);
     return this.runSubmitEdit(previewId);
   }
 
-  private async runPreviewEdit(bodyText: string): Promise<string> {
-    const { stdout, stderr, code } = await this.spawnCommand(
-      ['previewEdit', '--new', PROJECT_URL],
-      bodyText
-    );
+  /**
+   * Overwrite an existing Scrapbox page's body with plain text (1st line = title, ignored).
+   * Deletes all existing lines except the title line, then appends the new body lines
+   * at the end. The title line itself is never touched (replacing it would rename the page).
+   * Runs `previewEdit <projectUrl> <pageId>` (with an ops JSON on stdin) followed by `submitEdit`.
+   */
+  async overwritePageBody(page: CosensePage, bodyText: string): Promise<{ title: string; url: string }> {
+    const bodyLines = bodyText.split('\n');
+    const [newTitleLine, ...restLines] = bodyLines;
+
+    const currentTitle = page.lines[0]?.text;
+    if (currentTitle !== undefined && currentTitle !== newTitleLine) {
+      console.warn(
+        `[WARN] First line of bodyText ("${newTitleLine}") does not match the page's current title ("${currentTitle}"); the page title will not be changed.`
+      );
+    }
+
+    const ops: EditOp[] = [];
+
+    for (const line of page.lines.slice(1)) {
+      ops.push({ delete: line.id });
+    }
+
+    if (restLines.length > 0) {
+      ops.push({ insertBefore: '_end', text: restLines.join('\n') });
+    }
+
+    const previewId = await this.runPreviewEdit([PROJECT_URL, page.id], JSON.stringify({ ops }));
+    return this.runSubmitEdit(previewId);
+  }
+
+  private async runPreviewEdit(args: string[], stdin: string): Promise<string> {
+    const { stdout, stderr, code } = await this.spawnCommand(['previewEdit', ...args], stdin);
 
     if (code !== 0) {
       throw new Error(this.formatCliError('previewEdit', code, stdout, stderr));

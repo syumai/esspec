@@ -51,6 +51,7 @@ pnpm run create-scrapbox-page <event_number>
 # Example:
 pnpm run create-scrapbox-page 93
 # This creates the Scrapbox event page by copying and adapting the previous event's page
+# If the page already exists, prompts for confirmation (y/n) and overwrites its body if confirmed
 ```
 
 **Create YouTube Live broadcast:**
@@ -132,9 +133,12 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
 
 **scripts/lib/cosense-client.ts**: Cosense (Scrapbox) CLI wrapper
 - Wraps the `@helpfeel/cosense-cli` binary (`node_modules/.bin/cosense`) via `child_process`
-- `readPageLines(title)`: reads a page's line texts via `cosense readPage`; returns `null` on HTTP 404
+- `readPage(title)`: reads a page (id + line id/text) via `cosense readPage`; returns `null` on HTTP 404, and also returns `null` for non-persistent pages (Scrapbox page slots created only by a link/URL visit with no saved content — `readPage` reports these as HTTP 200 with `persistent: false` and `id: null`), treating them the same as "page does not exist"
+- `readPageLines(title)`: convenience wrapper over `readPage` returning just the line texts
 - `pageExists(title)`: checks page existence based on `readPageLines`
 - `createPage(bodyText)`: creates a new page via `cosense previewEdit --new` (stdin) followed by `cosense submitEdit`, parsing `previewId`/`title`/`url` from CLI output
+- `overwritePageBody(page, bodyText)`: overwrites an existing page's body in place — builds an ops JSON that deletes every line except the title (title is never replaced/renamed) and inserts the new body lines at the end (`insertBefore: "_end"`), then runs `cosense previewEdit <projectUrl> <pageId>` (stdin ops JSON) followed by `cosense submitEdit`
+- `buildDisplayPageUrl(title)`: builds a human-readable URL for console output only (spaces replaced with `_`, no percent-encoding); the internal API URL builder used by readPage/previewEdit still percent-encodes via `encodeURIComponent`
 - Detects HTTP 403 (unauthenticated) errors and surfaces a hint to run `cosense login https://scrapbox.io`
 - Configuration: project URL (`https://scrapbox.io/esspec`), CLI path, 60-second command timeout
 
@@ -206,11 +210,14 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
 
 3. **Create Scrapbox event page**: Run `create-scrapbox-page.ts` with event number
    - Loads event data from `./events/event-{event}.yaml` (event must already be created)
-   - Computes the new page title `ECMAScript仕様輪読会 #{N}` and checks it does not already exist (via `readPage`); aborts if it does, to avoid `submitEdit` silently auto-suffixing a duplicate title
+   - Computes the new page title `ECMAScript仕様輪読会 #{N}` and fetches it (via `readPage`) to check whether it already exists — the page id and line ids from this single fetch are reused for overwriting, so the page is not read twice
+   - Non-persistent pages (`persistent: false`, a page slot with no saved content — e.g. one that only exists because another page links to it) are treated as not existing, so the flow falls through to the normal creation path (`previewEdit --new`) instead of attempting to overwrite a page with no real id
+   - If the page already exists (persistently), prompts for confirmation (`既にページが存在します。内容を上書きしますか？ (y/n): `); on "n" (or anything other than y/yes) prints an `[INFO]` message and exits 0 without changes; on "y" proceeds to overwrite
    - Reads the previous event's page (`ECMAScript仕様輪読会 #{N-1}`) as a template; aborts if it does not exist
    - Builds the new page body with `buildEventPageBody` (updates title, "前回: [...]" link, and "前回のあらすじ" summary URL; truncates content after the "[* 今回のメモ]" heading; keeps all other sections as-is)
-   - Creates the page via `cosense previewEdit --new` + `cosense submitEdit`
-   - Prints the created page URL
+   - If the page is new: creates it via `cosense previewEdit --new` + `cosense submitEdit`
+   - If the page already existed and was confirmed: overwrites its body via `overwritePageBody` (deletes all lines except the title, then inserts the new body at the end), avoiding the auto-suffixed duplicate title that a plain `previewEdit --new` + `submitEdit` would produce for an existing title
+   - Prints the created/updated page URL
    - Configuration: project URL (`https://scrapbox.io/esspec`), event page title format
 
 4. **Create broadcast**: Run `create-broadcast.ts` with event number
@@ -273,7 +280,7 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
   - `ESSPEC_DISCORD_URL`: Discord server URL
 - Codex CLI installed globally (default for summary generation): `npm install -g @openai/codex`
 - Gemini CLI installed globally (alternative for summary generation): `npm install -g @google/gemini-cli`
-- Cosense CLI authentication (for Scrapbox page creation, first time only, requires a TTY): `cosense login https://scrapbox.io`
+- Cosense CLI authentication (for Scrapbox page creation/overwriting, first time only, requires a TTY): `cosense login https://scrapbox.io`
 
 ## Important Notes
 
@@ -283,6 +290,7 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
 - Event files and caption SRT files are never overwritten; caption TXT files and summary files are overwritten
 - Caption download automatically creates both SRT and TXT versions
 - Connpass template file is overwritten on each generation
+- Scrapbox event pages are never overwritten silently: if the target page already exists, `create-scrapbox-page` prompts for confirmation (y/n) before overwriting its body; declining leaves the page untouched and exits without error
 - All event-related scripts accept `<event_number>` as a positional argument, parsed via shared arg-parser library
 - Event data is validated using Zod schemas at runtime
 - Error handling includes specific messages for quota limits, permissions, and missing files

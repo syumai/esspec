@@ -1,7 +1,25 @@
 import { EventManager } from './lib/event-manager.ts';
-import { CosenseClient } from './lib/cosense-client.ts';
+import { CosenseClient, type CosensePage } from './lib/cosense-client.ts';
 import { buildEventPageBody, buildEventPageTitle } from './lib/scrapbox-page-builder.ts';
 import { parseEventNumberArg } from './lib/arg-parser.ts';
+import { createInterface } from 'node:readline/promises';
+import { stdin as input, stdout as output } from 'node:process';
+
+async function promptForOverwriteConfirmation(title: string, url: string): Promise<boolean> {
+  const rl = createInterface({ input, output });
+
+  try {
+    console.log(`[INFO] ページ "${title}" は既に存在します:`);
+    console.log(`  ${url}\n`);
+
+    const answer = await rl.question('既にページが存在します。内容を上書きしますか？ (y/n): ');
+    const trimmed = answer.trim().toLowerCase();
+
+    return trimmed === 'y' || trimmed === 'yes';
+  } finally {
+    rl.close();
+  }
+}
 
 async function main() {
   const event = parseEventNumberArg();
@@ -23,21 +41,30 @@ async function main() {
   const newTitle = buildEventPageTitle(event);
   const previousTitle = buildEventPageTitle(event - 1);
 
-  // 2. Check the new page does not already exist
+  // 2. Check whether the new page already exists.
+  //    Fetch once via readPage() so the pageId/lineIds are available for overwriting later.
   console.log(`[INFO] Checking whether "${newTitle}" already exists...`);
-  let alreadyExists: boolean;
+  let existingPage: CosensePage | null;
 
   try {
-    alreadyExists = await cosenseClient.pageExists(newTitle);
+    existingPage = await cosenseClient.readPage(newTitle);
   } catch (error) {
     console.error(`[ERROR] ${(error as Error).message}\n`);
     process.exit(1);
   }
 
-  if (alreadyExists) {
-    console.error(`[ERROR] Scrapbox page already exists: ${newTitle}`);
-    console.error(`  https://scrapbox.io/esspec/${encodeURIComponent(newTitle)}\n`);
-    process.exit(1);
+  let shouldOverwrite = false;
+
+  if (existingPage !== null) {
+    const existingUrl = cosenseClient.buildDisplayPageUrl(newTitle);
+    const confirmed = await promptForOverwriteConfirmation(newTitle, existingUrl);
+
+    if (!confirmed) {
+      console.log('\n[INFO] キャンセルしました。ページは変更されていません。\n');
+      process.exit(0);
+    }
+
+    shouldOverwrite = true;
   }
 
   // 3. Fetch the previous event page as a template
@@ -67,13 +94,19 @@ async function main() {
     process.exit(1);
   }
 
-  // 5. Create the page
-  console.log('[INFO] Creating Scrapbox page...');
-
+  // 5. Create or overwrite the page
   try {
-    const result = await cosenseClient.createPage(bodyText);
-    console.log(`\n[SUCCESS] Scrapbox page created: ${result.title}`);
-    console.log(`[INFO] URL: ${result.url}\n`);
+    if (shouldOverwrite && existingPage !== null) {
+      console.log('[INFO] Overwriting existing Scrapbox page...');
+      const result = await cosenseClient.overwritePageBody(existingPage, bodyText);
+      console.log(`\n[SUCCESS] Scrapbox page updated: ${result.title}`);
+      console.log(`[INFO] URL: ${cosenseClient.buildDisplayPageUrl(result.title)}\n`);
+    } else {
+      console.log('[INFO] Creating Scrapbox page...');
+      const result = await cosenseClient.createPage(bodyText);
+      console.log(`\n[SUCCESS] Scrapbox page created: ${result.title}`);
+      console.log(`[INFO] URL: ${cosenseClient.buildDisplayPageUrl(result.title)}\n`);
+    }
   } catch (error) {
     console.error(`\n[ERROR] ${(error as Error).message}\n`);
     process.exit(1);
