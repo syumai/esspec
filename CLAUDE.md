@@ -45,6 +45,14 @@ pnpm run generate-summary 42 -- --gemini
 pnpm run generate-summary:gemini 42
 ```
 
+**Create Scrapbox event page:**
+```bash
+pnpm run create-scrapbox-page <event_number>
+# Example:
+pnpm run create-scrapbox-page 93
+# This creates the Scrapbox event page by copying and adapting the previous event's page
+```
+
 **Create YouTube Live broadcast:**
 ```bash
 pnpm run create-broadcast <event_number>
@@ -68,7 +76,7 @@ pnpm run generate-connpass-texts 93
 pnpm run setup-event <event_number>
 # Example:
 pnpm run setup-event 93
-# This runs: create-event → create-broadcast → generate-connpass-texts
+# This runs: create-event → create-scrapbox-page → create-broadcast → generate-connpass-texts
 ```
 
 ## Architecture
@@ -122,6 +130,20 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
 - Best-effort: returns null on failure (network errors, missing page/section)
 - Configuration: project name (`esspec`), API base URL (`https://scrapbox.io/api/pages`)
 
+**scripts/lib/cosense-client.ts**: Cosense (Scrapbox) CLI wrapper
+- Wraps the `@helpfeel/cosense-cli` binary (`node_modules/.bin/cosense`) via `child_process`
+- `readPageLines(title)`: reads a page's line texts via `cosense readPage`; returns `null` on HTTP 404
+- `pageExists(title)`: checks page existence based on `readPageLines`
+- `createPage(bodyText)`: creates a new page via `cosense previewEdit --new` (stdin) followed by `cosense submitEdit`, parsing `previewId`/`title`/`url` from CLI output
+- Detects HTTP 403 (unauthenticated) errors and surfaces a hint to run `cosense login https://scrapbox.io`
+- Configuration: project URL (`https://scrapbox.io/esspec`), CLI path, 60-second command timeout
+
+**scripts/lib/scrapbox-page-builder.ts**: Scrapbox event page template builder
+- Pure transformation logic (no CLI dependency, easy to test)
+- `buildEventPageBody(previousPageLines, eventNumber)`: derives a new event page body from the previous event page's lines by updating the title, the "前回: [...]" link, and the "前回のあらすじ" summary URL, then truncating everything after the "[* 今回のメモ]" heading
+- Throws if the "前回: [...]" line or the "[* 今回のメモ]" heading cannot be found (to avoid producing a broken page); warns and continues if the summary URL line is missing
+- Configuration: event page title format (`ECMAScript仕様輪読会 #{N}`), summary URL pattern
+
 **scripts/lib/video-id-extractor.ts**: URL parser
 - Extracts video IDs from various YouTube URL formats
 - Supports: /watch, /live, /embed, /v, youtu.be URLs
@@ -161,7 +183,7 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
 
 ### Workflow
 
-**Quick start**: For a complete event setup workflow, you can use `pnpm run setup-event <event_number>` which runs `create-event`, `create-broadcast`, and `generate-connpass-texts` in sequence. This is the recommended approach for new events.
+**Quick start**: For a complete event setup workflow, you can use `pnpm run setup-event <event_number>` which runs `create-event`, `create-scrapbox-page`, `create-broadcast`, and `generate-connpass-texts` in sequence. This is the recommended approach for new events.
 
 1. **Initial setup**: Run `auth.ts` to set up OAuth credentials via browser flow
    - Starts local server on port 3000 to receive OAuth callback
@@ -182,7 +204,16 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
    - Prevents overwriting existing event files
    - Configuration: events directory (`./events/`)
 
-3. **Create broadcast**: Run `create-broadcast.ts` with event number
+3. **Create Scrapbox event page**: Run `create-scrapbox-page.ts` with event number
+   - Loads event data from `./events/event-{event}.yaml` (event must already be created)
+   - Computes the new page title `ECMAScript仕様輪読会 #{N}` and checks it does not already exist (via `readPage`); aborts if it does, to avoid `submitEdit` silently auto-suffixing a duplicate title
+   - Reads the previous event's page (`ECMAScript仕様輪読会 #{N-1}`) as a template; aborts if it does not exist
+   - Builds the new page body with `buildEventPageBody` (updates title, "前回: [...]" link, and "前回のあらすじ" summary URL; truncates content after the "[* 今回のメモ]" heading; keeps all other sections as-is)
+   - Creates the page via `cosense previewEdit --new` + `cosense submitEdit`
+   - Prints the created page URL
+   - Configuration: project URL (`https://scrapbox.io/esspec`), event page title format
+
+4. **Create broadcast**: Run `create-broadcast.ts` with event number
    - Loads event data from `./events/event-{event}.yaml`
    - Authenticates with saved tokens
    - Creates YouTube Live broadcast with event details
@@ -193,7 +224,7 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
    - If YouTube URL already exists, prompts to update existing broadcast or create new one
    - Configuration: broadcast settings (privacy, latency, category), stream settings (RTMP, variable resolution/framerate)
 
-4. **Generate Connpass templates**: Run `generate-connpass-texts.ts` with event number
+5. **Generate Connpass templates**: Run `generate-connpass-texts.ts` with event number
    - Loads event data from `./events/event-{event}.yaml`
    - Requires environment variables: ESSPEC_ZOOM_URL, ESSPEC_DISCORD_URL
    - Generates combined template with XML-style section separators:
@@ -204,7 +235,7 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
    - Saves single file to `./tmp/connpass/event-{N}-connpass.md`
    - Configuration: timetable timing, template structure
 
-5. **Download captions**: Run `download-caption.ts` with event number
+6. **Download captions**: Run `download-caption.ts` with event number
    - Loads YouTube URL from event data (requires event to have youtubeUrl set via create-broadcast)
    - Extracts video ID from URL
    - Authenticates with saved tokens
@@ -216,7 +247,7 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
    - Skips if SRT file already exists (no overwrite)
    - Configuration: captions directory (`./tmp/captions`)
 
-6. **Generate summary**: Run `generate-summary.ts` with event number
+7. **Generate summary**: Run `generate-summary.ts` with event number
    - Reads caption from `./tmp/captions/caption-{event}.txt`
    - Fetches Scrapbox page text via API and extracts "今回のメモ" section (best-effort, proceeds without it on failure)
    - Calls Gemini CLI with Japanese prompt (detailed summaries, skip introductions), caption content, and Scrapbox memo content (if available)
@@ -242,6 +273,7 @@ All scripts are executed using Node.js with `--experimental-strip-types` flag, w
   - `ESSPEC_DISCORD_URL`: Discord server URL
 - Codex CLI installed globally (default for summary generation): `npm install -g @openai/codex`
 - Gemini CLI installed globally (alternative for summary generation): `npm install -g @google/gemini-cli`
+- Cosense CLI authentication (for Scrapbox page creation, first time only, requires a TTY): `cosense login https://scrapbox.io`
 
 ## Important Notes
 
