@@ -117,11 +117,14 @@ export function generateEventMessage(
   }
 
   return `こんにちは！ECMAScript 仕様輪読会主催の syumai です。
+
 本日は、下記にて開催いたします。
 Zoom: ${zoomUrl}
 YouTube Live: ${event.youtubeUrl}
+
 また、連絡用の Discord を用意しておりますので、もしよろしければこちらもご利用ください。
 連絡用Discord: ${discordUrl}
+
 本日はよろしくお願いいたします。`;
 }
 
