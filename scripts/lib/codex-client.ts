@@ -5,7 +5,7 @@ import { readFile } from "node:fs/promises";
 
 const execAsync = promisify(exec);
 
-const CODEX_TIMEOUT_MS = 300000; // 5 minutes
+const CODEX_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 
 export class CodexClient {
   /**
